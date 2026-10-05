@@ -1,1 +1,54 @@
-{}
+{
+ "MF:AXIS-ELSS": {
+  "matched": "Axis ELSS- Tax Saver Fund - Direct Plan - Growth Option",
+  "scheme": 120503
+ },
+ "MF:AXIS-LARGECAP": {
+  "matched": "Axis Large & Mid Cap Fund - Direct Plan - Growth Option",
+  "scheme": 145110
+ },
+ "MF:CANARA-ELSS": {
+  "matched": "Canara Robeco ELSS - Tax Saver Fund - Direct Plan - GROWTH OPTION",
+  "scheme": 118285
+ },
+ "MF:DSP-ELSS": {
+  "matched": "DSP ELSS Tax Saver Fund - Direct Plan - Growth",
+  "scheme": 119242
+ },
+ "MF:HDFC-BAF": {
+  "matched": "HDFC Balanced Advantage Fund - Direct Plan - Growth Option",
+  "scheme": 118968
+ },
+ "MF:ICICI-LARGECAP": {
+  "matched": "ICICI Prudential Large Cap Fund (erstwhile Bluechip Fund) - Direct Plan - Growth",
+  "scheme": 120586
+ },
+ "MF:MIRAE-ELSS": {
+  "matched": "Mirae Asset ELSS Tax Saver Fund - Direct Plan - Growth",
+  "scheme": 135781
+ },
+ "MF:MIRAE-LARGEMID": {
+  "matched": "Mirae Asset Large & Midcap Fund - Direct Plan - Growth",
+  "scheme": 118834
+ },
+ "MF:NIPPON-USEQ": {
+  "matched": "Nippon India US Equity Opportunities Fund - Direct Plan - Growth Option",
+  "scheme": 134923
+ },
+ "MF:PPFAS-FLEXI": {
+  "matched": "Parag Parikh Flexi Cap Fund - Direct Plan - Growth",
+  "scheme": 122639
+ },
+ "MF:SBI-SMALLCAP": {
+  "matched": "SBI SMALL CAP FUND - Direct Plan - Growth",
+  "scheme": 125497
+ },
+ "MF:SUNDARAM-SERVICES": {
+  "matched": "Sundaram Services Fund - Direct Plan - GROWTH",
+  "scheme": 144835
+ },
+ "MF:TATA-ELSS": {
+  "matched": "Tata ELSS - Tax Saver Fund - Direct Plan - Growth Option",
+  "scheme": 132756
+ }
+}

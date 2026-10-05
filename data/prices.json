@@ -1,1 +1,277 @@
-{"updated":"not run yet","count":0,"stale":[],"notes":[],"prices":{}}
+{
+ "count": 36,
+ "notes": [
+  "Matched Mirae Large & Midcap to: Mirae Asset Large & Midcap Fund - Direct Plan - Growth",
+  "Matched Parag Parikh Flexi Cap to: Parag Parikh Flexi Cap Fund - Direct Plan - Growth",
+  "Matched SBI Small Cap to: SBI SMALL CAP FUND - Direct Plan - Growth",
+  "Could not find a scheme for Kotak Midcap. Edit its 'search' text in watchlist.json.",
+  "Matched ICICI Pru Large Cap to: ICICI Prudential Large Cap Fund (erstwhile Bluechip Fund) - Direct Plan - Growth",
+  "Matched HDFC Balanced Advantage to: HDFC Balanced Advantage Fund - Direct Plan - Growth Option",
+  "Matched DSP ELSS Tax Saver to: DSP ELSS Tax Saver Fund - Direct Plan - Growth",
+  "Matched Mirae ELSS Tax Saver to: Mirae Asset ELSS Tax Saver Fund - Direct Plan - Growth",
+  "Matched Tata ELSS Tax Saving to: Tata ELSS - Tax Saver Fund - Direct Plan - Growth Option",
+  "Matched Nippon India US Equity Opp to: Nippon India US Equity Opportunities Fund - Direct Plan - Growth Option",
+  "Matched Axis ELSS Tax Saver to: Axis ELSS- Tax Saver Fund - Direct Plan - Growth Option",
+  "Matched Axis Large Cap to: Axis Large & Mid Cap Fund - Direct Plan - Growth Option",
+  "Matched Canara Robeco ELSS to: Canara Robeco ELSS - Tax Saver Fund - Direct Plan - GROWTH OPTION",
+  "Matched Sundaram Services to: Sundaram Services Fund - Direct Plan - GROWTH"
+ ],
+ "prices": {
+  "ASHOKA.NS": {
+   "currency": "INR",
+   "date": "05-10-2026",
+   "kind": "price",
+   "name": "Ashoka Buildcon",
+   "price": 105.9
+  },
+  "AWHCL.NS": {
+   "currency": "INR",
+   "date": "05-10-2026",
+   "kind": "price",
+   "name": "Antony Waste",
+   "price": 350.4
+  },
+  "CASTROLIND.NS": {
+   "currency": "INR",
+   "date": "05-10-2026",
+   "kind": "price",
+   "name": "Castrol India",
+   "price": 199.51
+  },
+  "HCC.NS": {
+   "currency": "INR",
+   "date": "05-10-2026",
+   "kind": "price",
+   "name": "Hindustan Construction",
+   "price": 20.0
+  },
+  "ICICIB22.NS": {
+   "currency": "INR",
+   "date": "05-10-2026",
+   "kind": "price",
+   "name": "ICICI Pru Bharat 22 ETF",
+   "price": 109.88
+  },
+  "IDFCFIRSTB.NS": {
+   "currency": "INR",
+   "date": "05-10-2026",
+   "kind": "price",
+   "name": "IDFC First Bank",
+   "price": 82.22
+  },
+  "IRFC.NS": {
+   "currency": "INR",
+   "date": "05-10-2026",
+   "kind": "price",
+   "name": "IRFC",
+   "price": 76.5
+  },
+  "MANALIPETC.NS": {
+   "currency": "INR",
+   "date": "05-10-2026",
+   "kind": "price",
+   "name": "Manali Petrochemical",
+   "price": 87.19
+  },
+  "MF:AXIS-ELSS": {
+   "date": "01-10-2026",
+   "kind": "nav",
+   "matched": "Axis ELSS- Tax Saver Fund - Direct Plan - Growth Option",
+   "name": "Axis ELSS Tax Saver",
+   "price": 104.808
+  },
+  "MF:AXIS-LARGECAP": {
+   "date": "01-10-2026",
+   "kind": "nav",
+   "matched": "Axis Large & Mid Cap Fund - Direct Plan - Growth Option",
+   "name": "Axis Large Cap",
+   "price": 37.21
+  },
+  "MF:CANARA-ELSS": {
+   "date": "01-10-2026",
+   "kind": "nav",
+   "matched": "Canara Robeco ELSS - Tax Saver Fund - Direct Plan - GROWTH OPTION",
+   "name": "Canara Robeco ELSS",
+   "price": 190.92
+  },
+  "MF:DSP-ELSS": {
+   "date": "01-10-2026",
+   "kind": "nav",
+   "matched": "DSP ELSS Tax Saver Fund - Direct Plan - Growth",
+   "name": "DSP ELSS Tax Saver",
+   "price": 146.249
+  },
+  "MF:HDFC-BAF": {
+   "date": "01-10-2026",
+   "kind": "nav",
+   "matched": "HDFC Balanced Advantage Fund - Direct Plan - Growth Option",
+   "name": "HDFC Balanced Advantage",
+   "price": 546.112
+  },
+  "MF:ICICI-LARGECAP": {
+   "date": "01-10-2026",
+   "kind": "nav",
+   "matched": "ICICI Prudential Large Cap Fund (erstwhile Bluechip Fund) - Direct Plan - Growth",
+   "name": "ICICI Pru Large Cap",
+   "price": 112.29
+  },
+  "MF:MIRAE-ELSS": {
+   "date": "01-10-2026",
+   "kind": "nav",
+   "matched": "Mirae Asset ELSS Tax Saver Fund - Direct Plan - Growth",
+   "name": "Mirae ELSS Tax Saver",
+   "price": 54.041
+  },
+  "MF:MIRAE-LARGEMID": {
+   "date": "01-10-2026",
+   "kind": "nav",
+   "matched": "Mirae Asset Large & Midcap Fund - Direct Plan - Growth",
+   "name": "Mirae Large & Midcap",
+   "price": 167.653
+  },
+  "MF:NIPPON-USEQ": {
+   "date": "01-10-2026",
+   "kind": "nav",
+   "matched": "Nippon India US Equity Opportunities Fund - Direct Plan - Growth Option",
+   "name": "Nippon India US Equity Opp",
+   "price": 47.9399
+  },
+  "MF:PPFAS-FLEXI": {
+   "date": "01-10-2026",
+   "kind": "nav",
+   "matched": "Parag Parikh Flexi Cap Fund - Direct Plan - Growth",
+   "name": "Parag Parikh Flexi Cap",
+   "price": 88.2569
+  },
+  "MF:SBI-SMALLCAP": {
+   "date": "01-10-2026",
+   "kind": "nav",
+   "matched": "SBI SMALL CAP FUND - Direct Plan - Growth",
+   "name": "SBI Small Cap",
+   "price": 205.754
+  },
+  "MF:SUNDARAM-SERVICES": {
+   "date": "01-10-2026",
+   "kind": "nav",
+   "matched": "Sundaram Services Fund - Direct Plan - GROWTH",
+   "name": "Sundaram Services",
+   "price": 38.0015
+  },
+  "MF:TATA-ELSS": {
+   "date": "01-10-2026",
+   "kind": "nav",
+   "matched": "Tata ELSS - Tax Saver Fund - Direct Plan - Growth Option",
+   "name": "Tata ELSS Tax Saving",
+   "price": 51.46
+  },
+  "MSUMI.NS": {
+   "currency": "INR",
+   "date": "05-10-2026",
+   "kind": "price",
+   "name": "Motherson Sumi Wiring",
+   "price": 32.89
+  },
+  "NMDC.NS": {
+   "currency": "INR",
+   "date": "05-10-2026",
+   "kind": "price",
+   "name": "NMDC",
+   "price": 73.74
+  },
+  "ORCHPHARMA.NS": {
+   "currency": "INR",
+   "date": "05-10-2026",
+   "kind": "price",
+   "name": "Orchid Pharma",
+   "price": 965.9
+  },
+  "PARACABLES.NS": {
+   "currency": "INR",
+   "date": "05-10-2026",
+   "kind": "price",
+   "name": "Paramount Communications",
+   "price": 56.08
+  },
+  "PNB.NS": {
+   "currency": "INR",
+   "date": "05-10-2026",
+   "kind": "price",
+   "name": "Punjab National Bank",
+   "price": 112.35
+  },
+  "RENUKA.NS": {
+   "currency": "INR",
+   "date": "05-10-2026",
+   "kind": "price",
+   "name": "Shree Renuka Sugars",
+   "price": 21.76
+  },
+  "RVNL.NS": {
+   "currency": "INR",
+   "date": "05-10-2026",
+   "kind": "price",
+   "name": "RVNL",
+   "price": 196.95
+  },
+  "SBIN.NS": {
+   "currency": "INR",
+   "date": "05-10-2026",
+   "kind": "price",
+   "name": "State Bank of India",
+   "price": 958.0
+  },
+  "STLNETWORK.NS": {
+   "currency": "INR",
+   "date": "05-10-2026",
+   "kind": "price",
+   "name": "STL Networks",
+   "price": 44.84
+  },
+  "STLTECH.NS": {
+   "currency": "INR",
+   "date": "05-10-2026",
+   "kind": "price",
+   "name": "Sterlite Technologies",
+   "price": 1001.25
+  },
+  "SUZLON.NS": {
+   "currency": "INR",
+   "date": "05-10-2026",
+   "kind": "price",
+   "name": "Suzlon Energy",
+   "price": 38.92
+  },
+  "TATASTEEL.NS": {
+   "currency": "INR",
+   "date": "05-10-2026",
+   "kind": "price",
+   "name": "Tata Steel",
+   "price": 178.14
+  },
+  "TMCV.NS": {
+   "currency": "INR",
+   "date": "05-10-2026",
+   "kind": "price",
+   "name": "Tata Motors (Commercial)",
+   "price": 426.8
+  },
+  "TMPV.NS": {
+   "currency": "INR",
+   "date": "05-10-2026",
+   "kind": "price",
+   "name": "Tata Motors Passenger Vehicles",
+   "price": 288.65
+  },
+  "YESBANK.NS": {
+   "currency": "INR",
+   "date": "05-10-2026",
+   "kind": "price",
+   "name": "Yes Bank",
+   "price": 21.06
+  }
+ },
+ "stale": [
+  "Kotak Midcap"
+ ],
+ "updated": "05-10-2026 17:27 IST"
+}
