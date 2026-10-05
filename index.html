@@ -459,8 +459,63 @@ function saveTx(){var e=dr.i>=0?D.tx[dr.i]:null,kind=val("t_kind")||dr.kind||KIN
   if(frac>.999){r.qty=r.qty===""?"":0;r.invested=r.invested===""?"":0;r.value=0;r.status="Stopped";r.mc=""}}
  save();dr=null;render()}
 
+
+/* ---------- check-up ---------- */
+function ageDays(d){if(!d)return null;var m=String(d).match(/(\d{2})-(\d{2}|[A-Za-z]{3})-(\d{4})/);if(!m)return null;
+ var mo={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11}[String(m[2]).toLowerCase().slice(0,3)];
+ var x=new Date(+m[3],isNaN(mo)?(+m[2]-1):mo,+m[1]);return Math.round((new Date()-x)/864e5)}
+function qc(){var P=[],W=[],I=[],inv=D.inv,tot=inv.reduce(function(a,r){return a+num(r.value)},0);
+ var feedable={"Stock":1,"ETF":1,"Mutual fund":1,"US stock":1,"China stock":1};
+ var nocode=[],badcode=[],nocost=[],stale7=[],dup={},dupes=[],nosub=[],mktodd=[],zero=[],sipodd=[],big=[],foreign=[],lock=[];
+ inv.forEach(function(r){
+  var q=num(r.qty),v=num(r.value),key=(r.name||"").toLowerCase().trim()+"|"+(r.plat||"").toLowerCase().trim();
+  if(dup[key])dupes.push(r.name+" in "+(r.plat||"no platform"));else dup[key]=1;
+  if(feedable[r.cat]&&q>0&&!r.code)nocode.push(r.name);
+  if(r.code&&PXm&&PX&&!PX[r.code])badcode.push(r.name+" ("+r.code+")");
+  if(v>0&&(r.invested===""||r.invested==null||num(r.invested)===0))nocost.push(r.name);
+  var a=r.live?ageDays(r.live):null;if(a!==null&&a>7)stale7.push(r.name+", "+a+" days");
+  if((r.cat=="Mutual fund"||r.cat=="ETF")&&(!r.sub||r.sub=="-"))nosub.push(r.name);
+  if(r.code&&r.mkt=="India"&&!/\.(NS|BO)$/.test(r.code)&&r.code.indexOf("MF:")!==0)mktodd.push(r.name+" is marked India but its code is "+r.code);
+  if(r.code&&(r.mkt=="US"||r.mkt=="China")&&/\.(NS|BO)$/.test(r.code))mktodd.push(r.name+" is marked "+r.mkt+" but its code is an Indian one");
+  if(q===0&&v===0&&r.status=="Active")zero.push(r.name);
+  if(num(r.mc)>0&&r.status!="Active")sipodd.push(r.name+" has a monthly amount but is "+(r.status||"blank").toLowerCase());
+  if(num(r.mc)>0&&!num(r.day))sipodd.push(r.name+" has a monthly amount but no day of the month");
+  if(tot&&v/tot>0.1)big.push(r.name+", "+(v/tot*100).toFixed(1)+"%");
+  if(r.mkt=="US"||r.mkt=="China"||r.cat=="US stock"||r.cat=="China stock"||r.cat=="ESOP or RSU")foreign.push(r.name);
+  if(r.mat&&new Date(r.mat)>new Date())lock.push(r.name+" until "+r.mat)});
+ var txbad=D.tx.filter(function(t){return!isLoan(t.kind)&&classify(t)=="?"}).map(function(t){return t.item+" on "+t.date});
+ function add(a,list,head,tail){if(list.length)a.push(head+" "+few(list,8)+(tail?". "+tail:"."))}
+ add(P,nocode,"No price feed code, so these are not updated automatically:","Add the code in the watchlist and on the holding.");
+ add(P,badcode,"Feed code not found in the last price file:","Either the code is wrong or the watchlist does not have it.");
+ add(P,txbad,"Sales missing a buy date or cost, so they are left out of the tax figures:","");
+ add(P,mktodd,"Market and feed code disagree:","A wrong market changes the tax treatment.");
+ add(W,nocost,"No cost recorded, so no gain and no tax can be worked out:","");
+ add(W,stale7,"Price older than a week:","");
+ add(W,dupes,"The same name appears twice in the same place:","Check this is not a double entry.");
+ add(W,nosub,"Fund with no fund type, so it cannot be grouped:","");
+ add(W,sipodd,"Monthly investment set up oddly:","");
+ add(W,zero,"Nothing left but still marked active:","Mark it stopped, or delete it.");
+ add(W,big,"More than a tenth of everything sits in one holding:","");
+ if(!D.inc.length)W.push("No income entered, so the spare-each-month figure cannot be worked out.");
+ if(!D.lia.length)W.push("No loans or bills entered, so net worth counts no debt.");
+ if(fxMiss.length)P.push("No exchange rate for "+few(fxMiss,4)+", so foreign holdings are not converted.");
+ if(PXm&&PXm.stale&&PXm.stale.length)W.push("The last price run could not fetch "+PXm.stale.length+" of them: "+few(PXm.stale,8)+".");
+ add(I,foreign,"Held outside India, so Schedule FA of ITR-2 applies:","");
+ add(I,lock,"Locked in or maturing later:","");
+ if(PXm&&PXm.prices){var byname=Object.keys(PXm.prices).filter(function(k){return(PXm.prices[k].how||"").indexOf("name")>-1});
+  if(byname.length)W.push("Matched by name rather than ISIN, so worth checking once: "+few(byname.map(function(k){return PXm.prices[k].name||k}),6)+".")}
+ return{P:P,W:W,I:I,tot:tot}}
+function checkup(){var r=qc();
+ var h='<h1>Check-up</h1><p class="lede">Everything the dashboard can test about your own entries. It runs on what is in this browser; nothing is sent anywhere.</p>';
+ h+=strip([["Holdings",String(D.inv.length)],["Priced automatically",String(D.inv.filter(function(x){return x.live}).length)],["Needs attention",String(r.P.length),r.P.length?"down":"up"],["Worth a look",String(r.W.length)]]);
+ function block(t,list,cls){if(!list.length)return'<h2>'+t+'</h2><p class="note">Nothing here.</p>';
+  return'<h2>'+t+'</h2>'+list.map(function(x){return'<div class="flag"'+(cls?' style="border-left-color:var(--'+cls+')"':"")+'>'+esc(x)+'</div>'}).join("")}
+ h+=block("Needs attention",r.P,"down")+block("Worth a look",r.W,"")+block("For information",r.I,"deep");
+ h+='<h2>Things the dashboard cannot check</h2><p class="note">That your units and costs match your broker and CAS. That a price belongs to the right scheme, beyond the ISIN test. That your income and bills are complete and current. Any holding you have not entered at all.</p>';
+ return h}
+
 /* ---------- shell ---------- */
-var PAGES=[["dash","Dashboard",dash],["port","Portfolio",portfolio],["act","Sales and withdrawals",activity],["cash","Income and bills",cash],["tax","Tax",taxPage],["data","Data",data]];
+var PAGES=[["dash","Dashboard",dash],["port","Portfolio",portfolio],["act","Sales and withdrawals",activity],["cash","Income and bills",cash],["tax","Tax",taxPage],["check","Check-up",checkup],["data","Data",data]];
 function render(){
  if(PXm)applyPrices();
  document.getElementById("nav").innerHTML=PAGES.map(function(p){return'<a tabindex="0" class="'+(page==p[0]?"on":"")+'" data-go="'+p[0]+'">'+p[1]+'</a>'}).join("");
