@@ -698,6 +698,91 @@ function planView(){var p=plan();
  h+='<p class="note">How it is worked out: seven tenths of what you would save in '+p.months+' months, plus half of any cash above '+p.floorMonths+' months of bills. The fractions are deliberate slack, so a holiday never takes everything spare.</p>';
  return h}
 
+
+/* ---------- sell and hold signals ---------- */
+function moveOver(code,days){if(!code||!PXm||!PXm.history||!PXm.history[code])return null;
+ var H=PXm.history[code],ks=Object.keys(H).sort();if(ks.length<2)return null;
+ var last=ks[ks.length-1],want=iso(new Date(new Date(last)-days*864e5)),base=null;
+ for(var i=0;i<ks.length;i++){if(ks[i]<=want)base=ks[i];else break}
+ if(!base||base==last)return null;
+ var gap=Math.round((new Date(want)-new Date(base))/864e5);
+ if(gap>20)return null;
+ return{pct:(H[last]/H[base]-1)*100,from:base,to:last}}
+function freeLtcgLeft(){var used=0;
+ D.tx.forEach(function(t){if(isLoan(t.kind)||!t.date||fyOf(t.date)!=fy)return;
+  if(classify(t)=="L1")used+=Math.max(0,num(t.proceeds)-num(t.cost))});
+ return{used:Math.min(used,125000),left:Math.max(0,125000-used)}}
+function signals(){
+ var tot=D.inv.reduce(function(a,r){return a+num(r.value)},0),out=[],subCount={},catTot={};
+ D.inv.forEach(function(r){var g=group(r);catTot[g[0]]=(catTot[g[0]]||0)+num(r.value);
+  if(r.cat=="Mutual fund"||r.cat=="ETF"){subCount[r.sub]=(subCount[r.sub]||0);subCount[r.sub]++}});
+ D.inv.forEach(function(r,i){
+  var v=num(r.value),w=tot?v/tot*100:0,
+   cost=(r.invested===""||r.invested==null)?null:num(r.invested),
+   gain=(cost&&cost>0)?(v/cost-1)*100:null,
+   m1=moveOver(r.code,30),m3=moveOver(r.code,92),
+   locked=r.mat&&new Date(r.mat)>new Date(),
+   bull=[],bear=[],score=0,flags=[];
+  if(v<=0)return;
+  if(w>10){score+=2;flags.push("large position");
+   bear.push("It is "+w.toFixed(1)+"% of everything you hold, so one bad year here moves your whole portfolio.");
+   bull.push("A concentrated position is what produces a large gain in the first place, and trimming a good holding has its own cost.")}
+  if(gain!==null&&gain>100&&w>1.5){score+=2;flags.push("big winner");
+   bull.push("Up "+gain.toFixed(0)+"% on your cost, and a trend that has worked has often kept working.");
+   bear.push("Selling part turns some of that into money you actually have, and your original capital is already back several times over.")}
+  if(gain!==null&&gain<-30){score+=2;flags.push("well down");
+   bull.push("Down "+Math.abs(gain).toFixed(0)+"%, and selling now makes a paper loss real. Recoveries do happen.");
+   bear.push("The loss can be set against other gains this year, and the money could work harder somewhere you still believe in.")}
+  if(m3&&m3.pct<-20){score+=1;flags.push("falling");
+   bear.push("Down "+Math.abs(m3.pct).toFixed(0)+"% over roughly three months, which is worth a reason rather than a shrug.");
+   bull.push("A fall of that size in a holding you bought for the long run is not by itself a reason to sell.")}
+  if(m3&&m3.pct>40){score+=1;flags.push("sharp run");
+   bull.push("Up "+m3.pct.toFixed(0)+"% in about three months.");
+   bear.push("A run that fast usually gives some back. Taking a part off the table costs nothing but the upside you forgo.")}
+  if(v<10000&&w<1&&r.cat!="NPS"){score+=1;flags.push("very small");
+   bull.push("It costs nothing to keep and might still come good.");
+   bear.push("At "+inr(v)+" it cannot change your results, but it takes your attention at tax time.")}
+  if(r.status!="Active"&&v>0&&num(r.mc)===0){score+=1;flags.push("dormant");
+   bull.push("Leaving it invested keeps the money in the market.");
+   bear.push("Nothing is going in any more, so decide whether you would buy it today. If not, the money has a better home.")}
+  if((r.cat=="Mutual fund")&&subCount[r.sub]>2){score+=1;flags.push("crowded category");
+   bull.push("Different managers in the same category do behave differently.");
+   bear.push("You hold "+subCount[r.sub]+" funds in "+esc(r.sub)+". They are likely to own many of the same companies, so you carry the fees without the spread.")}
+  if(locked){flags.push("locked in");
+   bull.push("Locked until "+esc(r.mat)+", so this one is not a decision you can act on yet.")}
+  if(cost===null){flags.push("no cost on file");
+   bear.push("No purchase cost is recorded, so neither the gain nor the tax can be judged. Add it before deciding anything.")}
+  if(r.code&&PXm&&!PX[r.code])flags.push("no live price");
+  if(!flags.length)return;
+  var verdict=locked?"Cannot act yet":score>=4?"Worth a decision":score>=2?"Review":"Keep an eye on it";
+  out.push({r:r,i:i,w:w,v:v,gain:gain,m1:m1,m3:m3,score:score,flags:flags,bull:bull,bear:bear,verdict:verdict})});
+ out.sort(function(a,b){return b.score-a.score||b.v-a.v});
+ return{list:out,tot:tot,catTot:catTot}}
+function signalsPage(){
+ var S=signals(),tot=S.tot,L=S.list,F=freeLtcgLeft();
+ var h='<h1>Sell or hold</h1><p class="lede">Rules applied to your own holdings, with the case for keeping and the case for selling side by side. These are prompts for your decision, not advice, and nothing here knows anything about the companies themselves.</p>';
+ if(!D.inv.length)return h+empty("Nothing to look at yet.","Go to Portfolio","port");
+ var eq=0;Object.keys(S.catTot).forEach(function(k){if(/Shares|Equity funds|Overseas|Equity compensation/.test(k))eq+=S.catTot[k]});
+ h+=strip([["Holdings flagged",String(L.length)+" of "+D.inv.length],
+  ["In equity",tot?(eq/tot*100).toFixed(0)+"%":"-"],
+  ["Free long-term gain left this year",inr(F.left),"", F.used?inr(F.used)+" used":"of ₹1.25 lakh"]]);
+ if(tot&&eq/tot>0.85)h+='<div class="flag">About '+(eq/tot*100).toFixed(0)+'% of your money is in equity. That is fine while you do not need it, but it means a bad year hits nearly everything at once. Cash, deposits or a debt fund would soften that, at the cost of some return.</div>';
+ if(F.left>20000)h+='<div class="flag">'+inr(F.left)+' of long-term equity gain can still be realised tax free this financial year. Selling and buying back the same amount resets your cost at no tax cost, though it restarts the holding clock and costs you the exit load if any.</div>';
+ if(!L.length)return h+'<p>No holding triggers a rule today.</p>';
+ L.forEach(function(x){
+  h+='<div class="panel" style="padding:16px;margin:10px 0"><div style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline">'+
+   '<div style="font:500 17px var(--serif)">'+esc(x.r.name)+'</div><div class="pill">'+esc(x.verdict)+'</div></div>'+
+   '<p class="note" style="margin:4px 0 8px">'+inr(x.v)+' · '+x.w.toFixed(1)+'% of everything'+
+   (x.gain!==null?' · '+(x.gain>=0?'<span class="up">up '+x.gain.toFixed(0)+'%</span>':'<span class="down">down '+Math.abs(x.gain).toFixed(0)+'%</span>')+' on cost':' · cost unknown')+
+   (x.m1?' · '+(x.m1.pct>=0?"+":"")+x.m1.pct.toFixed(1)+'% in a month':"")+
+   (x.r.plat?' · '+esc(x.r.plat):"")+'</p>'+
+   '<p class="note" style="margin:0 0 10px">'+x.flags.map(function(f){return'<span class="pill">'+esc(f)+'</span>'}).join(" ")+'</p>';
+  if(x.bull.length)h+='<p style="margin:0 0 6px"><b class="up">Why hold.</b> '+x.bull.join(" ")+'</p>';
+  if(x.bear.length)h+='<p style="margin:0"><b class="down">Why sell.</b> '+x.bear.join(" ")+'</p>';
+  h+='</div>'});
+ h+='<p class="note">What these rules cannot see: what a company earns, what a fund now owns, why a price moved, or your own reason for buying. Nor can they judge tax properly without a purchase date, which is why adding buy dates to your sales is worth the trouble.</p>';
+ return h}
+
 /* ---------- check-up ---------- */
 function ageDays(d){if(!d)return null;var m=String(d).match(/(\d{2})-(\d{2}|[A-Za-z]{3})-(\d{4})/);if(!m)return null;
  var mo={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11}[String(m[2]).toLowerCase().slice(0,3)];
@@ -759,7 +844,7 @@ function checkup(){var r=qc();
  return h}
 
 /* ---------- shell ---------- */
-var PAGES=[["dash","Dashboard",dash],["port","Portfolio",portfolio],["act","Sales and withdrawals",activity],["cash","Income and bills",cash],["sip","SIP calendar",sipPage],["tax","Tax",taxPage],["check","Check-up",checkup],["data","Data",data]];
+var PAGES=[["dash","Dashboard",dash],["port","Portfolio",portfolio],["sig","Sell or hold",signalsPage],["act","Sales and withdrawals",activity],["cash","Income and bills",cash],["sip","SIP calendar",sipPage],["tax","Tax",taxPage],["check","Check-up",checkup],["data","Data",data]];
 function render(){
  if(PXm)applyPrices();
  document.getElementById("nav").innerHTML=PAGES.map(function(p){return'<a tabindex="0" class="'+(page==p[0]?"on":"")+'" data-go="'+p[0]+'">'+p[1]+'</a>'}).join("");
