@@ -213,7 +213,7 @@ function activity(){
  if(!D.tx.length)return h+empty("Nothing recorded yet.","Record one","dr:tx");
  return h+rows('<th>Date</th><th>What happened</th><th>Item</th><th class="n">Amount</th><th class="n">Cost</th><th class="n">Gain</th><th>Tax treatment</th><th></th>',
   D.tx.map(function(t,i){var l=isLoan(t.kind),b=l?"none":classify(t);
-  return'<tr><td>'+esc(t.date)+'</td><td>'+esc(t.kind)+'</td><td>'+esc(t.item)+'</td><td class="n">'+inr(l?t.amt:t.proceeds)+'</td><td class="n">'+(l||t.cost===""?"-":inr(t.cost))+'</td><td class="n '+(!l&&t.cost!==""&&num(t.proceeds)-num(t.cost)<0?"down":"up")+'">'+(l||t.cost===""?"-":inr(num(t.proceeds)-num(t.cost)))+'</td><td>'+(l?"-":b=="none"?"No capital gains tax":b=="?"?'<span class="down">needs buy date and cost</span>':BUCK[b]+", "+BRATE[b])+'</td><td><button class="btn link" data-dr="tx" data-i="'+i+'">Edit</button><button class="btn link danger" data-del="tx|'+i+'">Delete</button></td></tr>'}).join(""),
+  return'<tr><td>'+esc(t.date)+'</td><td>'+esc(t.kind)+(t.taxOnly?' <span class="pill">tax only</span>':"")+(t.closed?' <span class="pill">closed</span>':"")+'</td><td>'+esc(t.item)+'</td><td class="n">'+inr(l?t.amt:t.proceeds)+'</td><td class="n">'+(l||t.cost===""?"-":inr(t.cost))+'</td><td class="n '+(!l&&t.cost!==""&&num(t.proceeds)-num(t.cost)<0?"down":"up")+'">'+(l||t.cost===""?"-":inr(num(t.proceeds)-num(t.cost)))+'</td><td>'+(l?"-":b=="none"?"No capital gains tax":b=="?"?'<span class="down">needs buy date and cost</span>':BUCK[b]+", "+BRATE[b])+'</td><td><button class="btn link" data-dr="tx" data-i="'+i+'">Edit</button><button class="btn link danger" data-del="tx|'+i+'">Delete</button></td></tr>'}).join(""),
   "Editing or deleting an entry changes the record and the tax only. It does not put the holding back.")}
 
 function cash(){var t=totals();
@@ -436,7 +436,11 @@ function txDrawer(){var e=dr.i>=0?D.tx[dr.i]:null,kind=dr.kind||(e?e.kind:KINDS[
   else if(!opts)h+='<p class="note">Nothing of this kind is on your list. Choose "Something I no longer hold" to record the sale anyway.</p>'}
  h+='<label for="t_date">Date</label><input type="date" id="t_date" value="'+esc(e?e.date:"")+'">';
  h+='<label for="t_amt">'+(loan?"Amount":"Amount you received")+'</label><input type="number" step="any" id="t_amt" value="'+esc(e?(loan?e.amt:e.proceeds):"")+'">';
- if(!loan)h+='<label for="t_units">Units or shares, if you know them</label><input type="number" step="any" id="t_units" value="'+esc(e?e.units:"")+'">'+
+ if(!loan)h+='<label for="t_apply">Does your holding still include these units?</label><select id="t_apply">'+
+  '<option value="yes"'+(dr.apply=="no"?"":" selected")+'>Yes, take them off the holding</option>'+
+  '<option value="no"'+(dr.apply=="no"?" selected":"")+'>No, my units already exclude them. Record for tax only</option></select>'+
+  '<p class="note">Choose the second one when the units you entered came from a statement dated after the sale, such as a CAS. Otherwise the sale is taken off twice.</p>'+
+  '<label for="t_units">Units or shares, if you know them</label><input type="number" step="any" id="t_units" value="'+esc(e?e.units:"")+'">'+
   '<label for="t_cost">What that part cost you</label><input type="number" step="any" id="t_cost" value="'+esc(e?e.cost:"")+'">'+
   '<label for="t_buy">Bought on, oldest units first</label><input type="date" id="t_buy" value="'+esc(e?e.buy:"")+'">';
  h+='<label for="t_note">Note</label><input id="t_note" value="'+esc(e?e.note:"")+'">';
@@ -463,6 +467,10 @@ function saveTx(){var e=dr.i>=0?D.tx[dr.i]:null,kind=val("t_kind")||dr.kind||KIN
  if(loan){var l=D.lia[j];l.out=kind==KINDS[5]?Math.max(0,num(l.out)-amt):num(l.out)+amt;
   if(num(l.out)===0&&kind==KINDS[5])l.status="Closed";
   D.tx.push({kind:kind,item:l.name,date:date,amt:amt,note:val("t_note")})}
+ else if(val("t_apply")=="no"){var r0=D.inv[j];
+  D.tx.push({kind:kind,item:r0.name,plat:r0.plat,cat:r0.cat,sub:r0.sub,mkt:r0.mkt,date:date,units:val("t_units"),
+   proceeds:amt,cost:val("t_cost")===""?"":num(val("t_cost")),buy:val("t_buy"),note:val("t_note"),taxOnly:true});
+  save();dr=null;render();return}
  else{var r=D.inv[j],u=num(val("t_units")),
   frac=(u>0&&num(r.qty)>0)?Math.min(1,u/num(r.qty)):(num(r.value)>0?Math.min(1,amt/num(r.value)):1),
   cost=val("t_cost")!==""?num(val("t_cost")):((r.invested!==""&&r.invested!=null)?rd(num(r.invested)*frac,100):"");
@@ -659,6 +667,8 @@ function qc(){var P=[],W=[],I=[],inv=D.inv,tot=inv.reduce(function(a,r){return a
  add(W,big,"More than a tenth of everything sits in one holding:","");
  if(HOL){var ends=[];D.inv.forEach(function(r){if(num(r.mc)>0&&r.status=="Active"){var m=mkt(r),e=calBounds(m);if(e&&ends.indexOf(m+" to "+e)<0&&new Date(e)<new Date(Date.now()+90*864e5))ends.push(m+" to "+e)}});
   if(ends.length)W.push("Holiday calendar nearly used up: "+few(ends,4)+". SIP dates past that only skip weekends.")}
+ var sameDay={};D.tx.forEach(function(t){if(isLoan(t.kind)||t.taxOnly||t.closed)return;
+  var key=(t.item||"")+"|"+(t.date||"");if(sameDay[key])W.push("Two sales of "+t.item+" recorded on "+t.date+". Check this is not the same one entered twice.");sameDay[key]=1});
  var dueN=dueSips().length;
  if(dueN)W.push(dueN+" monthly instalment(s) are past their date and not confirmed, so units and cost are behind. The SIP calendar lists them.");
  if(!D.inc.length)W.push("No income entered, so the spare-each-month figure cannot be worked out.");
@@ -718,6 +728,7 @@ document.addEventListener("change",function(e){var t=e.target;
  if(t.id=="slab"){slab=parseInt(t.value,10);render();return}
  if(t.id=="t_kind"&&dr){dr.kind=t.value;dr.gone=false;render();return}
  if(t.id=="t_item"&&dr){var g2=(t.value=="gone");if(g2!=dr.gone){dr.gone=g2;render()}return}
+ if(t.id=="t_apply"&&dr){dr.apply=t.value;return}
  if(/^i_/.test(t.id)){D.itr[t.id.slice(2)]=t.value===""?"":num(t.value);save();return}
  if(t.id=="casf"&&t.files[0]){casFile=t.files[0];casName=casFile.name;cas=null;err="";render();return}
  if(t.id=="shf"&&t.files[0]){readSheet(t.files[0]);return}});
