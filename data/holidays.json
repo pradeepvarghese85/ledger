@@ -1,0 +1,65 @@
+{
+  "_comment": "Trading holidays per market, used to move a SIP to the next working day. Dates are YYYY-MM-DD. Weekends are handled in code and are not listed here. India's list is published one year at a time, so add the next year each December from the NSE circular. The US list is rule-based and rarely changes. Check these against the exchange before relying on them.",
+  "_checked": "2026-10-05",
+  "India": {
+    "label": "NSE and BSE, equity segment",
+    "source": "NSE trading holiday circular",
+    "dates": {
+      "2026-01-15": "Municipal elections, Maharashtra",
+      "2026-01-26": "Republic Day",
+      "2026-03-03": "Holi",
+      "2026-03-26": "Ram Navami",
+      "2026-03-31": "Mahavir Jayanti",
+      "2026-04-03": "Good Friday",
+      "2026-04-14": "Ambedkar Jayanti",
+      "2026-05-01": "Maharashtra Day",
+      "2026-05-28": "Bakri Id",
+      "2026-06-26": "Muharram",
+      "2026-09-14": "Ganesh Chaturthi",
+      "2026-10-02": "Gandhi Jayanti",
+      "2026-10-20": "Dussehra",
+      "2026-11-10": "Diwali, Balipratipada",
+      "2026-12-25": "Christmas"
+    }
+  },
+  "US": {
+    "label": "NYSE and Nasdaq",
+    "source": "NYSE holiday calendar",
+    "dates": {
+      "2026-01-01": "New Year's Day",
+      "2026-01-19": "Martin Luther King Jr. Day",
+      "2026-02-16": "Presidents' Day",
+      "2026-04-03": "Good Friday",
+      "2026-05-25": "Memorial Day",
+      "2026-06-19": "Juneteenth",
+      "2026-07-03": "Independence Day, observed",
+      "2026-09-07": "Labor Day",
+      "2026-11-26": "Thanksgiving",
+      "2026-12-25": "Christmas",
+      "2027-01-01": "New Year's Day",
+      "2027-01-18": "Martin Luther King Jr. Day",
+      "2027-02-15": "Presidents' Day",
+      "2027-03-26": "Good Friday",
+      "2027-05-31": "Memorial Day",
+      "2027-06-18": "Juneteenth, observed",
+      "2027-07-05": "Independence Day, observed",
+      "2027-09-06": "Labor Day",
+      "2027-11-25": "Thanksgiving",
+      "2027-12-24": "Christmas, observed"
+    }
+  },
+  "China": {
+    "label": "Hong Kong and mainland exchanges",
+    "source": "Add from HKEX or SSE before relying on it",
+    "dates": {
+      "2026-01-01": "New Year's Day",
+      "2026-02-16": "Lunar New Year",
+      "2026-02-17": "Lunar New Year",
+      "2026-02-18": "Lunar New Year",
+      "2026-04-06": "Ching Ming Festival",
+      "2026-05-01": "Labour Day",
+      "2026-10-01": "National Day",
+      "2026-12-25": "Christmas"
+    }
+  }
+}
