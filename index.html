@@ -90,8 +90,8 @@ textarea{font-family:ui-monospace,Menlo,monospace;font-size:12.5px}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 /* ---------- reference lists ---------- */
-var CATS=["Stock","Mutual fund","ETF","PPF","EPF","NPS","Gold (physical)","Digital gold","Sovereign gold bond","Fixed deposit","Recurring deposit","Bonds","US stock","China stock","Real estate","Other"];
-var SUBS=["-","Equity: Large cap","Equity: Mid cap","Equity: Small cap","Equity: Large & Mid cap","Equity: Flexi/Multi cap","Equity: ELSS","Equity: Sectoral/Thematic","Equity: Index/ETF","Equity: International","Equity: Other","Hybrid: Equity-oriented","Hybrid: Other","Debt: Liquid","Debt: Short term","Debt: Long term/Gilt","Debt: Other","Gold fund","Other"];
+var CATS=["Stock","Mutual fund","ETF","PPF","EPF","NPS","Gold (physical)","Digital gold","Sovereign gold bond","Fixed deposit","Recurring deposit","Bonds","US stock","China stock","ESOP or RSU","Real estate","Other"];
+var SUBS=["-","Equity: Large cap","Equity: Mid cap","Equity: Small cap","Equity: Large & Mid cap","Equity: Flexi/Multi cap","Equity: ELSS","Equity: Sectoral/Thematic","Equity: Index/ETF","Equity: International","Equity: Other","Hybrid: Equity-oriented","Hybrid: Other","Debt: Liquid","Debt: Short term","Debt: Long term/Gilt","Debt: Other","Gold fund","Vested","Unvested","Other"];
 var MKTS=["India","US","China","Other"],STAT=["Active","Paused","Stopped"],FREQ=["Monthly","Quarterly","Yearly"],FAC={Monthly:1,Quarterly:1/3,Yearly:1/12};
 var INCT=["Salary","Business","Rent received","Interest or dividend","Pension","Other"];
 var LIAT=["Home loan","Car loan","Personal loan","Education loan","Credit card","Insurance premium","Utility bill","Rent paid","Subscription","Other"];
@@ -119,6 +119,8 @@ function guessSub(n){n=(n||"").toLowerCase();var t=[[/liquid|overnight|money mar
 function group(r){var c=r.cat,s=r.sub||"-";
  if(c=="Stock")return["Shares"+(r.mkt&&r.mkt!="India"?" ("+r.mkt+")":" (India)"),"Direct shares"];
  if(c=="US stock")return["Shares (US)","Direct shares"];if(c=="China stock")return["Shares (China)","Direct shares"];
+ if(c=="ESOP or RSU")return["Equity compensation",s=="-"?(r.mkt||"Shares"):s];
+ if((c=="Mutual fund"||c=="ETF")&&(r.mkt=="US"||r.mkt=="China"))return["Overseas funds and ETFs",r.mkt+(c=="ETF"?" ETF":" fund")];
  if(c=="Mutual fund"||c=="ETF"){if(/^Equity/.test(s))return["Equity funds",s.slice(8)];if(/^Hybrid/.test(s))return["Hybrid funds",s.slice(8)];if(/^Debt/.test(s))return["Debt funds",s.slice(6)];if(s=="Gold fund")return["Gold","Gold fund"];return["Equity funds","Index/ETF"]}
  if(/[Gg]old/.test(c))return["Gold",c];
  if(/^(PPF|EPF|NPS)$/.test(c))return["Retirement and tax-free",c];
@@ -252,7 +254,7 @@ function data(){
  h+=sheetReview();
  h+='<h2>What the last update fetched</h2>';
  if(!PXm||!PXm.prices)h+='<p class="note">No price file loaded.</p>';
- else{var ks=Object.keys(PXm.prices).sort();
+ else{var ks=Object.keys(PXm.prices).sort(function(a,b){return(a.indexOf("FX:")==0)-(b.indexOf("FX:")==0)||(a<b?-1:1)});
   h+=rows('<th>Code</th><th>Name</th><th>Matched scheme</th><th>How</th><th class="n">Price</th><th>As on</th>',
    ks.map(function(k){var p=PXm.prices[k];return'<tr><td>'+esc(k)+'</td><td>'+esc(p.name||"")+'</td><td>'+esc(p.matched||"")+'</td><td>'+esc(p.how||"")+'</td><td class="n">'+(p.price||"")+'</td><td>'+esc(p.date||"")+'</td></tr>'}).join(""),
    'Funds marked "matched by ISIN" are exact. Anything marked "matched by name" is a guess worth checking: add that fund\'s ISIN to watchlist.json to make it exact.')}
@@ -367,10 +369,14 @@ function sheetAdd(){var plat=val("shplat"),mkt=val("shmkt")||"India",add=[];
 
 /* ---------- nightly price file ---------- */
 var PX={},PXm=null,PXerr="";
-function applyPrices(){var n=0,changed=false;
+var fxMiss=[];
+function rate(cur){if(!cur||cur=="INR")return 1;var f=PX["FX:"+cur+"INR"];return f&&f.price?f.price:0}
+function applyPrices(){var n=0,changed=false;fxMiss=[];
  D.inv.forEach(function(r){var p=r.code?PX[r.code]:null;
   if(!p||!p.price||!(num(r.qty)>0)){if(r.live){delete r.live;changed=true}return}
-  var v=Math.round(num(r.qty)*p.price*100)/100,tag=p.date||PXm.updated;
+  var fx=rate(p.currency);
+  if(!fx){if(fxMiss.indexOf(p.currency)<0)fxMiss.push(p.currency);if(r.live){delete r.live;changed=true}return}
+  var v=Math.round(num(r.qty)*p.price*fx*100)/100,tag=(p.date||PXm.updated)+(fx!=1?" · "+p.currency:"");
   if(r.value!==v||r.live!==tag){r.value=v;r.live=tag;changed=true}n++});
  if(changed)save();return n}
 function loadPrices(){
@@ -389,6 +395,7 @@ function priceLine(){
  if(PXm.stale&&PXm.stale.length)h+='<div class="flag">The last run could not fetch: '+esc(few(PXm.stale,6))+'. Those are showing their previous price.</div>';
  if(missing.length)h+='<div class="flag">No price came back for: '+esc(few(missing,6))+'. Check the code on the holding matches watchlist.json.</div>';
  if(nocode.length)h+='<p class="note">Typed in by you, not priced automatically: '+esc(few(nocode,6))+'.</p>';
+ if(fxMiss.length)h+='<div class="flag">No exchange rate for '+esc(fxMiss.join(", "))+', so those holdings keep their last value. The rate is fetched on each run.</div>';
  if(PXm.notes&&PXm.notes.length)h+='<p class="note">'+PXm.notes.map(esc).join("<br>")+'</p>';
  return h}
 
