@@ -252,6 +252,7 @@ function data(){
  h+=casReview();
  h+='<h2>Broker or spreadsheet file</h2><div class="panel" style="padding:16px"><label for="shf">A holdings file from your broker (.csv, .xlsx)</label><input type="file" id="shf" accept=".csv,.xlsx,.xls"><p class="note">It looks for columns named like instrument or symbol, quantity, average price and current value. Anything it cannot match is left for you to check.</p></div>';
  h+=sheetReview();
+ h+=codeRef();
  h+='<h2>What the last update fetched</h2>';
  if(!PXm||!PXm.prices)h+='<p class="note">No price file loaded.</p>';
  else{var ks=Object.keys(PXm.prices).sort(function(a,b){return(a.indexOf("FX:")==0)-(b.indexOf("FX:")==0)||(a<b?-1:1)});
@@ -402,7 +403,7 @@ function priceLine(){
 /* ---------- drawers ---------- */
 var FORMS={
  inv:{title:"Holding",fields:[["name","Name","t"],["cat","Type","s",CATS],["sub","Fund type, for funds","s",SUBS],["plat","Where it is held","t"],["code","Price feed code","t"],["mkt","Market","s",MKTS],["qty","Units or quantity","n"],["invested","Total put in so far","n"],["value","What it is worth now","n"],["mc","Regular amount a month","n"],["day","Day of the month it goes out","n"],["rate","Interest rate %, for PPF, EPF and deposits","n"],["status","Status","s",STAT],["mat","Matures or lock-in ends","d"],["note","Note","t"]],
-  hint:"The price feed code links this holding to the nightly update: a Yahoo symbol such as RVNL.NS for shares, or the code you gave the fund in watchlist.json. Leave it blank for PPF, EPF, NPS, gold and deposits, and type their value in yourself. For those, put everything you have contributed in Total put in, and the balance today in What it is worth now."},
+  hint:"The price feed code links this holding to the nightly update: a Yahoo symbol such as RVNL.NS for shares, QQQM for a US one, or the MF: label you gave the fund in watchlist.json. The Data page lists the format for every kind of holding. Leave it blank for PPF, EPF, NPS, gold and deposits, and type their value in yourself. For those, put everything you have contributed in Total put in, and the balance today in What it is worth now."},
  inc:{title:"Income",fields:[["name","Source","t"],["type","Type","s",INCT],["amt","Amount","n"],["freq","How often","s",FREQ],["note","Note","t"]]},
  lia:{title:"Loan or bill",fields:[["name","Name","t"],["type","Type","s",LIAT],["amt","Amount each time","n"],["freq","How often","s",FREQ],["out","Still owed","n"],["end","Ends on","d"],["status","Status","s",LSTAT],["note","Note","t"]]}};
 function drawer(){if(!dr)return"";
@@ -460,6 +461,100 @@ function saveTx(){var e=dr.i>=0?D.tx[dr.i]:null,kind=val("t_kind")||dr.kind||KIN
  save();dr=null;render()}
 
 
+function codeRef(){
+ var R=[
+ ["Share listed on the NSE","SYMBOL.NS","RVNL.NS, SBIN.NS, YESBANK.NS","The NSE symbol, which is the one your broker shows, plus .NS"],
+ ["Share listed only on the BSE","NUMBER.BO","500325.BO","The six-digit BSE scrip code plus .BO"],
+ ["Indian ETF","SYMBOL.NS","ICICIB22.NS, GOLDBEES.NS","Same as a share. Gold ETFs price themselves this way"],
+ ["US share or ETF","TICKER","QQQM, AAPL","No suffix. The price arrives in dollars and is converted for you"],
+ ["Share in Hong Kong","NUMBER.HK","0700.HK","Four digits plus .HK, converted from Hong Kong dollars"],
+ ["Share in mainland China","NUMBER.SS or .SZ","600519.SS","Shanghai is .SS, Shenzhen is .SZ. Often unavailable, so check it returns a price"],
+ ["Indian mutual fund, any AMC","MF:YOUR-LABEL","MF:PPFAS-FLEXI","Invent the label. What identifies the fund is the ISIN you put beside it in the watchlist"],
+ ["Sovereign gold bond","SYMBOL.NS","SGBAUG28.NS","Only if it is traded. Thinly traded bonds give a stale or odd price, so check it"],
+ ["Gold fund or gold ETF","MF:LABEL or SYMBOL.NS","GOLDBEES.NS","Treated like any fund or ETF"],
+ ["Employer shares, listed","its own ticker","INFY.NS, MSFT","Use the ticker of the company. A US listing converts automatically"],
+ ["Exchange rate","FX:USDINR","FX:USDINR, FX:HKDINR, FX:CNYINR","Fetched on every run. You never enter these on a holding"]];
+ var M=[
+ ["PPF","Only you and your bank know the balance. Update it after each interest credit, in April"],
+ ["EPF","Update from your passbook, usually once or twice a year"],
+ ["NPS","No free feed. Copy the value from the NPS or CRA app every few months"],
+ ["Physical gold and digital gold","Multiply your grams by the day's rate yourself. A gold ETF in the watchlist is a fair guide to the movement"],
+ ["Fixed and recurring deposits","Put the rate in the rate box and update the value when it matures or compounds"],
+ ["Unlisted shares, ESOPs before listing","Use the latest valuation from your employer"],
+ ["Real estate","Your own estimate, revised now and then"],
+ ["Anything delisted or suspended","No price will come. Keep the last value or write it down to zero"]];
+ var h='<h2>Feed code reference</h2><p class="note">The code goes in two places and must be identical in both: on the holding, in its Price feed code box, and on a line in <code>data/watchlist.json</code>. Only then does the nightly job price it.</p>';
+ h+=rows('<th>What you hold</th><th>Code looks like</th><th>Example</th><th>Notes</th>',
+  R.map(function(x){return'<tr><td>'+esc(x[0])+'</td><td><code>'+esc(x[1])+'</code></td><td>'+esc(x[2])+'</td><td style="white-space:normal">'+esc(x[3])+'</td></tr>'}).join(""),"");
+ h+='<h3 style="font:500 15px var(--serif);margin:18px 0 6px">Typed in by you, no code</h3><p class="note">Leave the feed code blank for these and change the value yourself now and then.</p>';
+ h+=rows('<th>What you hold</th><th>How to keep it current</th>',
+  M.map(function(x){return'<tr><td>'+esc(x[0])+'</td><td style="white-space:normal">'+esc(x[1])+'</td></tr>'}).join(""),"");
+ h+='<h3 style="font:500 15px var(--serif);margin:18px 0 6px">Finding a code you do not know</h3><p class="note">For a share or ETF, search the company on finance.yahoo.com and copy the symbol shown beside its name; that is the code, exactly as written. For an Indian mutual fund, open your CAS and copy the ISIN, which starts with INF, then add a line to the watchlist with any label you like plus that ISIN. The Check-up page tells you afterwards whether the code returned a price.</p>';
+ return h}
+
+
+/* ---------- SIP calendar ---------- */
+var HOL=null,HOLerr="";
+function loadHolidays(){
+ if(typeof fetch!="function")return;
+ fetch("data/holidays.json",{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.json()})
+ .then(function(j){HOL=j;render()})
+ .catch(function(){HOLerr="The holiday file was not found, so dates below only skip weekends.";render()})}
+function iso(d){return d.getFullYear()+"-"+("0"+(d.getMonth()+1)).slice(-2)+"-"+("0"+d.getDate()).slice(-2)}
+function mkt(r){var m=r.mkt||"India";if(m=="US"||r.cat=="US stock")return"US";if(m=="China"||r.cat=="China stock")return"China";if(m=="Other")return"Other";return"India"}
+function holidaysFor(m){return(HOL&&HOL[m]&&HOL[m].dates)||{}}
+function shift(d,m){var H=holidaysFor(m),x=new Date(d),why="",n=0;
+ while(n<20){var w=x.getDay(),k=iso(x);
+  if(w===0||w===6){why=why||"weekend";x.setDate(x.getDate()+1);n++;continue}
+  if(H[k]){why=H[k];x.setDate(x.getDate()+1);n++;continue}
+  break}
+ return{date:x,moved:n>0,why:why}}
+function sipDates(r,count){var day=Math.min(31,Math.max(1,num(r.day)||1)),out=[],t=new Date();t.setHours(0,0,0,0);
+ var y=t.getFullYear(),mo=t.getMonth();
+ for(var i=0;out.length<count&&i<count+3;i++){
+  var last=new Date(y,mo+i+1,0).getDate(),d=new Date(y,mo+i,Math.min(day,last));
+  if(d<t)continue;
+  var s=shift(d,mkt(r));out.push({planned:d,real:s.date,moved:s.moved,why:s.why})}
+ return out}
+function calBounds(m){var ks=Object.keys(holidaysFor(m)).sort();return ks.length?ks[ks.length-1]:null}
+function sipPage(){
+ var live=D.inv.filter(function(r){return num(r.mc)>0&&r.status=="Active"}),
+  paused=D.inv.filter(function(r){return num(r.mc)>0&&r.status!="Active"});
+ var h='<h1>SIP calendar</h1><p class="lede">What goes out, when, and which day each market actually prices it on.</p>';
+ if(HOLerr)h+='<div class="flag">'+esc(HOLerr)+'</div>';
+ if(!live.length)return h+empty("Nothing is set up as a monthly investment yet. Open a holding and fill in its monthly amount and the day of the month.","Go to Portfolio","port");
+ var byMkt={},total=0;live.forEach(function(r){var m=mkt(r);byMkt[m]=(byMkt[m]||0)+num(r.mc);total+=num(r.mc)});
+ var cards=[["Every month",inr(total)],["Instalments",String(live.length)]];
+ Object.keys(byMkt).sort().forEach(function(m){cards.push([m,inr(byMkt[m])])});
+ if(paused.length)cards.push(["Paused or stopped",String(paused.length)]);
+ h+=strip(cards);
+ var soon=[];live.forEach(function(r){sipDates(r,3).forEach(function(d){soon.push({r:r,d:d})})});
+ soon.sort(function(a,b){return a.d.real-b.d.real});
+ var horizon=new Date();horizon.setDate(horizon.getDate()+62);
+ h+='<h2>Next two months</h2>';
+ var list=soon.filter(function(x){return x.d.real<=horizon});
+ h+=list.length?rows('<th>Date</th><th>Holding</th><th>Where</th><th>Market</th><th class="n">Amount</th><th>Note</th>',
+  list.map(function(x){var d=x.d;return'<tr><td>'+d.real.toLocaleDateString("en-IN",{weekday:"short",day:"numeric",month:"short"})+'</td><td>'+esc(x.r.name)+'</td><td>'+esc(x.r.plat||"")+'</td><td>'+mkt(x.r)+'</td><td class="n">'+inr(x.r.mc)+'</td><td style="white-space:normal">'+(d.moved?"moved from the "+d.planned.getDate()+", "+esc(d.why):"")+'</td></tr>'}).join(""),"")
+  :'<p class="note">Nothing falls in the next two months.</p>';
+ h+='<h2>Every monthly investment</h2>';
+ h+=rows('<th>Holding</th><th>Where</th><th>Market</th><th class="n">Amount</th><th>Scheduled</th><th>Next date</th><th>Then</th>',
+  live.map(function(r){var d=sipDates(r,2);
+   return'<tr><td>'+esc(r.name)+'</td><td>'+esc(r.plat||"")+'</td><td>'+mkt(r)+'</td><td class="n">'+inr(r.mc)+'</td><td>'+(num(r.day)?"the "+num(r.day):'<span class="down">no day set</span>')+'</td><td>'+(d[0]?d[0].real.toLocaleDateString("en-IN",{day:"numeric",month:"short"})+(d[0].moved?" *":""):"-")+'</td><td>'+(d[1]?d[1].real.toLocaleDateString("en-IN",{day:"numeric",month:"short"})+(d[1].moved?" *":""):"-")+'</td></tr>'}).join(""),
+  'A star means the date moved because the scheduled day is a weekend or a market holiday.');
+ if(paused.length)h+='<h2>Not running</h2>'+rows('<th>Holding</th><th class="n">Amount</th><th>Status</th>',
+  paused.map(function(r){return'<tr><td>'+esc(r.name)+'</td><td class="n">'+inr(r.mc)+'</td><td><span class="pill">'+esc(r.status)+'</span></td></tr>'}).join(""),"");
+ h+='<h2>Holiday calendars in use</h2>';
+ if(!HOL)h+='<p class="note">None loaded. Only weekends are being skipped.</p>';
+ else{var mkts=Object.keys(byMkt).filter(function(m){return HOL[m]});
+  h+=rows('<th>Market</th><th>Covers</th><th class="n">Dates listed</th><th>Runs out after</th>',
+   mkts.map(function(m){var end=calBounds(m),n=Object.keys(holidaysFor(m)).length;
+    return'<tr><td>'+m+'</td><td style="white-space:normal">'+esc(HOL[m].label||"")+'</td><td class="n">'+n+'</td><td>'+esc(end||"-")+'</td></tr>'}).join(""),
+   'Edit data/holidays.json in your repository to add a year or correct a date. India publishes its list one year at a time.');
+  mkts.forEach(function(m){var end=calBounds(m);
+   if(end&&new Date(end)<new Date(Date.now()+90*864e5))h+='<div class="flag">The '+m+' calendar runs out after '+esc(end)+'. Dates past that only skip weekends, so add the next year.</div>'})}
+ h+='<p class="note">One caution: this shows when the market is open, not when your money moves. A bank debit can be a day or two earlier, and Indian fund units are allotted at the NAV of the day the money actually reaches the AMC, which for a holiday or weekend is the next working day. Treat these as the dates the instalment will be priced, give or take a day.</p>';
+ return h}
+
 /* ---------- check-up ---------- */
 function ageDays(d){if(!d)return null;var m=String(d).match(/(\d{2})-(\d{2}|[A-Za-z]{3})-(\d{4})/);if(!m)return null;
  var mo={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11}[String(m[2]).toLowerCase().slice(0,3)];
@@ -496,6 +591,8 @@ function qc(){var P=[],W=[],I=[],inv=D.inv,tot=inv.reduce(function(a,r){return a
  add(W,sipodd,"Monthly investment set up oddly:","");
  add(W,zero,"Nothing left but still marked active:","Mark it stopped, or delete it.");
  add(W,big,"More than a tenth of everything sits in one holding:","");
+ if(HOL){var ends=[];D.inv.forEach(function(r){if(num(r.mc)>0&&r.status=="Active"){var m=mkt(r),e=calBounds(m);if(e&&ends.indexOf(m+" to "+e)<0&&new Date(e)<new Date(Date.now()+90*864e5))ends.push(m+" to "+e)}});
+  if(ends.length)W.push("Holiday calendar nearly used up: "+few(ends,4)+". SIP dates past that only skip weekends.")}
  if(!D.inc.length)W.push("No income entered, so the spare-each-month figure cannot be worked out.");
  if(!D.lia.length)W.push("No loans or bills entered, so net worth counts no debt.");
  if(fxMiss.length)P.push("No exchange rate for "+few(fxMiss,4)+", so foreign holdings are not converted.");
@@ -515,7 +612,7 @@ function checkup(){var r=qc();
  return h}
 
 /* ---------- shell ---------- */
-var PAGES=[["dash","Dashboard",dash],["port","Portfolio",portfolio],["act","Sales and withdrawals",activity],["cash","Income and bills",cash],["tax","Tax",taxPage],["check","Check-up",checkup],["data","Data",data]];
+var PAGES=[["dash","Dashboard",dash],["port","Portfolio",portfolio],["act","Sales and withdrawals",activity],["cash","Income and bills",cash],["sip","SIP calendar",sipPage],["tax","Tax",taxPage],["check","Check-up",checkup],["data","Data",data]];
 function render(){
  if(PXm)applyPrices();
  document.getElementById("nav").innerHTML=PAGES.map(function(p){return'<a tabindex="0" class="'+(page==p[0]?"on":"")+'" data-go="'+p[0]+'">'+p[1]+'</a>'}).join("");
@@ -554,4 +651,5 @@ document.addEventListener("change",function(e){var t=e.target;
  if(t.id=="shf"&&t.files[0]){readSheet(t.files[0]);return}});
 render();
 loadPrices();
+loadHolidays();
 </script></body></html>
