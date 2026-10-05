@@ -43,6 +43,22 @@ def get(url, tries=3, as_json=True):
             time.sleep(2 * (n + 1))
 
 
+def to_iso(d):
+    """'01-Oct-2026' or '05-10-2026' -> '2026-10-01'. Returns '' if it cannot tell."""
+    d = (d or "").strip()
+    m = {"jan": 1, "feb": 2, "mar": 3, "apr": 4, "may": 5, "jun": 6,
+         "jul": 7, "aug": 8, "sep": 9, "oct": 10, "nov": 11, "dec": 12}
+    p = d.replace("/", "-").split("-")
+    if len(p) != 3:
+        return ""
+    try:
+        day = int(p[0])
+        mon = m.get(p[1][:3].lower()) or int(p[1])
+        return "%04d-%02d-%02d" % (int(p[2]), mon, day)
+    except Exception:
+        return ""
+
+
 def load(path, default):
     try:
         with open(path) as f:
@@ -256,8 +272,23 @@ def main():
         traceback.print_exc()
         stale.append(s.get("name", "?"))
 
+    # keep a rolling 120 days of prices, so a SIP confirmed late still uses the
+    # right day's NAV rather than today's
+    hist = old.get("history", {})
+    cutoff = (datetime.now(IST) - timedelta(days=120)).strftime("%Y-%m-%d")
+    for code, p in prices.items():
+        iso = to_iso(p.get("date"))
+        if not iso:
+            continue
+        hist.setdefault(code, {})[iso] = p["price"]
+    for code in list(hist):
+        hist[code] = dict((d, v) for d, v in hist[code].items() if d >= cutoff)
+        if not hist[code]:
+            del hist[code]
+
     out = {
         "updated": datetime.now(IST).strftime("%d-%m-%Y %H:%M IST"),
+        "history": hist,
         "count": len(prices),
         "stale": stale,
         "notes": notes,
