@@ -29,13 +29,13 @@
    "date": "05-10-2026",
    "kind": "fx",
    "name": "CNY to INR",
-   "price": 14.3516
+   "price": 14.3641
   },
   "FX:HKDINR": {
    "date": "05-10-2026",
    "kind": "fx",
    "name": "HKD to INR",
-   "price": 12.2723
+   "price": 12.2726
   },
   "FX:USDINR": {
    "date": "05-10-2026",
@@ -244,7 +244,7 @@
    "date": "05-10-2026",
    "kind": "price",
    "name": "Invesco NASDAQ 100 ETF",
-   "price": 310.37
+   "price": 310.79
   },
   "RENUKA.NS": {
    "currency": "INR",
@@ -318,5 +318,5 @@
   }
  },
  "stale": [],
- "updated": "05-10-2026 21:15 IST"
+ "updated": "05-10-2026 23:13 IST"
 }
