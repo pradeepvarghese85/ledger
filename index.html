@@ -1,6 +1,8 @@
 <!DOCTYPE html>
 <html lang="en"><head><meta charset="utf-8"><title>Ledger</title>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="A personal offline portfolio tracker. It has no accounts, no sign-in and no server: everything is typed in by one person and kept in their own browser.">
+<meta name="robots" content="noindex">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Spectral:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
@@ -70,6 +72,7 @@ textarea{font-family:ui-monospace,Menlo,monospace;font-size:12.5px}
 .pill{font-size:12px;color:var(--soft);border:1px solid var(--rule);border-radius:20px;padding:2px 9px}
 .sw{display:flex;align-items:center;gap:7px;color:var(--soft);font-size:13.5px;margin:12px 0}
 .sw input{width:auto}
+.masked{-webkit-text-security:disc;text-security:disc;font-family:ui-monospace,Menlo,monospace;letter-spacing:.08em}
 .drop{border:1px dashed var(--rule);border-radius:10px;padding:18px;background:var(--surface)}
 @media (max-width:760px){
  .app{grid-template-columns:1fr}
@@ -83,7 +86,7 @@ textarea{font-family:ui-monospace,Menlo,monospace;font-size:12.5px}
 @media (prefers-reduced-motion:no-preference){.drawer form{animation:slide .18s ease-out}@keyframes slide{from{transform:translateX(14px);opacity:.7}}}
 </style></head>
 <body><div class="app">
-<aside><div class="mark">Ledger<small>Your money, in one place</small></div><nav id="nav"></nav></aside>
+<aside><div class="mark">Ledger<small>Personal tracker. No sign-in, no accounts, nothing sent anywhere.</small></div><nav id="nav"></nav></aside>
 <main id="main"></main></div>
 <div id="drawer"></div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -248,7 +251,7 @@ function taxPage(){
 
 function data(){
  var h='<h1>Data</h1><p class="lede">Bring figures in from a statement, and keep a copy of everything you have entered. Files are read inside this browser and are not sent anywhere.</p>';
- h+='<h2>Consolidated account statement (CAS)</h2><div class="panel" style="padding:16px"><div class="two"><div><label for="casf">The PDF emailed to you, not a scan</label><input type="file" id="casf" accept=".pdf"></div><div><label for="caspw">Password, if it asks for one</label><input type="password" id="caspw" autocomplete="off"></div></div><div class="acts"><button class="btn" data-cas="read">Read statement</button></div>'+(casName?'<p class="note">Chosen: '+esc(casName)+'</p>':"")+'</div>';
+ h+='<h2>Consolidated account statement (CAS)</h2><div class="panel" style="padding:16px"><div class="two"><div><label for="casf">The PDF emailed to you, not a scan</label><input type="file" id="casf" accept=".pdf"></div><div><label for="caspw">Key for the file, if it asks for one</label><input type="text" id="caspw" class="masked" autocomplete="off" spellcheck="false" inputmode="text"></div></div><div class="acts"><button class="btn" data-cas="read">Read statement</button></div>'+(casName?'<p class="note">Chosen: '+esc(casName)+'</p>':"")+'</div>';
  h+=casReview();
  h+='<h2>Broker or spreadsheet file</h2><div class="panel" style="padding:16px"><label for="shf">A holdings file from your broker (.csv, .xlsx)</label><input type="file" id="shf" accept=".csv,.xlsx,.xls"><p class="note">It looks for columns named like instrument or symbol, quantity, average price and current value. Anything it cannot match is left for you to check.</p></div>';
  h+=sheetReview();
