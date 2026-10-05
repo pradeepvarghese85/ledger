@@ -1,5 +1,5 @@
 {
- "count": 37,
+ "count": 41,
  "notes": [
   "AMFI's file would not download, so NAVs came from mfapi.in instead."
  ],
@@ -24,6 +24,24 @@
    "kind": "price",
    "name": "Castrol India",
    "price": 199.51
+  },
+  "FX:CNYINR": {
+   "date": "05-10-2026",
+   "kind": "fx",
+   "name": "CNY to INR",
+   "price": 14.3516
+  },
+  "FX:HKDINR": {
+   "date": "05-10-2026",
+   "kind": "fx",
+   "name": "HKD to INR",
+   "price": 12.2723
+  },
+  "FX:USDINR": {
+   "date": "05-10-2026",
+   "kind": "fx",
+   "name": "USD to INR",
+   "price": 96.283
   },
   "HCC.NS": {
    "currency": "INR",
@@ -221,6 +239,13 @@
    "name": "Punjab National Bank",
    "price": 112.35
   },
+  "QQQM": {
+   "currency": "USD",
+   "date": "05-10-2026",
+   "kind": "price",
+   "name": "Invesco NASDAQ 100 ETF",
+   "price": 310.09
+  },
   "RENUKA.NS": {
    "currency": "INR",
    "date": "05-10-2026",
@@ -293,5 +318,5 @@
   }
  },
  "stale": [],
- "updated": "05-10-2026 20:10 IST"
+ "updated": "05-10-2026 20:44 IST"
 }
