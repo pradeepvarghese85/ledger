@@ -18,14 +18,21 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, "data")
 WATCH = os.path.join(DATA, "watchlist.json")
 OUT = os.path.join(DATA, "prices.json")
-UA = "Mozilla/5.0 (compatible; personal-portfolio-tracker/1.0)"
+CACHE = os.path.join(DATA, "fund-codes.json")
+UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+      "(KHTML, like Gecko) Chrome/129.0 Safari/537.36")
 IST = timezone(timedelta(hours=5, minutes=30))
 
 
 def get(url, tries=3, as_json=True):
     for n in range(tries):
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "*/*"})
+            req = urllib.request.Request(url, headers={
+                "User-Agent": UA,
+                "Accept": "text/plain,application/json,*/*",
+                "Accept-Language": "en-IN,en;q=0.9",
+                "Connection": "close",
+            })
             with urllib.request.urlopen(req, timeout=60) as r:
                 body = r.read().decode("utf-8", "replace")
             return json.loads(body) if as_json else body
@@ -84,8 +91,16 @@ def amfi():
 
     Each line is: code ; ISIN growth ; ISIN reinvest ; name ; NAV ; date
     """
-    txt = get("https://www.amfiindia.com/spages/NAVAll.txt", as_json=False)
     by_isin, by_code, rows = {}, {}, []
+    txt = None
+    for url in ("https://www.amfiindia.com/spages/NAVAll.txt",
+                "https://portal.amfiindia.com/spages/NAVAll.txt",
+                "http://portal.amfiindia.com/spages/NAVAll.txt"):
+        print("   trying", url)
+        txt = get(url, tries=2, as_json=False)
+        if txt and ";" in txt:
+            break
+        txt = None
     if not txt:
         return by_isin, by_code, rows
     for line in txt.splitlines():
@@ -104,6 +119,44 @@ def amfi():
                 by_isin[isin.upper()] = row
     print("AMFI file: %d schemes" % len(rows))
     return by_isin, by_code, rows
+
+
+def mfapi(f, codes):
+    """Second route when AMFI's file will not download.
+
+    mfapi.in has no ISIN search, so we search by name, then open each candidate
+    and keep the one whose ISIN matches the one in the watchlist. That keeps the
+    lookup exact even though the search itself is by name.
+    """
+    code, want, isin = f["code"], f.get("search") or f.get("name", ""), (f.get("isin") or "").upper()
+    sc = codes.get(code, {}).get("scheme") or f.get("scheme")
+    if not sc:
+        res = get("https://api.mfapi.in/mf/search?q=" + urllib.parse.quote(want))
+        if not isinstance(res, list):
+            return None, ""
+        cands = [r for r in res if isinstance(r, dict) and r.get("schemeName")]
+        cands.sort(key=lambda r: score(r["schemeName"], want), reverse=True)
+        for r in cands[:6]:
+            d = get("https://api.mfapi.in/mf/%s" % r["schemeCode"])
+            meta = (d or {}).get("meta") or {}
+            got = [str(meta.get(k, "")).upper() for k in ("isin_growth", "isin_div_reinvestment")]
+            if isin and isin in got:
+                sc = r["schemeCode"]
+                codes[code] = {"scheme": sc, "matched": r["schemeName"]}
+                print("      ISIN confirmed against mfapi: %s" % r["schemeName"])
+                break
+        if not sc and cands and not isin and score(cands[0]["schemeName"], want) >= 6:
+            sc = cands[0]["schemeCode"]
+            codes[code] = {"scheme": sc, "matched": cands[0]["schemeName"]}
+    if not sc:
+        return None, ""
+    d = get("https://api.mfapi.in/mf/%s/latest" % sc)
+    row = (d or {}).get("data") or []
+    if not row:
+        return None, ""
+    name = ((d or {}).get("meta") or {}).get("scheme_name") or codes.get(code, {}).get("matched", "")
+    return ({"scheme": str(sc), "name": name, "nav": row[0]["nav"], "date": row[0]["date"]},
+            "matched by ISIN (mfapi)" if isin and codes.get(code) else "matched by name (mfapi)")
 
 
 def pick(f, by_isin, by_code, rows):
@@ -133,17 +186,18 @@ def main():
     w = load(WATCH, {})
     old = load(OUT, {"prices": {}})
     oldp = old.get("prices", {})
+    codes = load(CACHE, {})
     prices, stale, notes = {}, [], []
 
     print("Funds")
     by_isin, by_code, rows = amfi()
     if not rows:
-        print("   AMFI's file could not be downloaded. Every fund keeps its previous NAV.")
-        notes.append("AMFI's NAV file could not be downloaded on this run.")
+        print("   AMFI's file would not download. Falling back to mfapi.in.")
+        notes.append("AMFI's file would not download, so NAVs came from mfapi.in instead.")
     for f in w.get("funds", []):
       try:
           code = f["code"]
-          r, how = pick(f, by_isin, by_code, rows) if rows else (None, "")
+          r, how = pick(f, by_isin, by_code, rows) if rows else mfapi(f, codes)
           if r:
               prices[code] = {"price": float(r["nav"]), "date": r["date"], "name": f["name"],
                               "matched": r["name"], "how": how, "scheme": r["scheme"], "kind": "nav"}
@@ -151,9 +205,8 @@ def main():
               if how == "matched by name":
                   notes.append("%s matched by name to: %s" % (f["name"], r["name"]))
               continue
-          if rows:
-              print("   NO MATCH for", f["name"])
-              notes.append("Could not find %s. Add its ISIN to watchlist.json." % f["name"])
+          print("   NO MATCH for", f["name"])
+          notes.append("Could not find %s from either source." % f["name"])
           if code in oldp:
               prices[code] = oldp[code]
           stale.append(f["name"])
@@ -199,6 +252,8 @@ def main():
     os.makedirs(DATA, exist_ok=True)
     with open(OUT, "w") as f:
         json.dump(out, f, indent=1, sort_keys=True)
+    with open(CACHE, "w") as f:
+        json.dump(codes, f, indent=1, sort_keys=True)
     print("\nWrote %d prices. %d could not be fetched." % (len(prices), len(stale)))
     if not prices:
         print("\nNOTHING was fetched. Both sources failed, or watchlist.json did not load.")
