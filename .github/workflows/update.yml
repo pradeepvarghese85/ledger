@@ -36,7 +36,7 @@ jobs:
         run: |
           git config user.name "price bot"
           git config user.email "actions@github.com"
-          git add data/prices.json
+          git add -A data
           if git diff --staged --quiet; then
             echo "Nothing changed, so nothing to save."
           else
