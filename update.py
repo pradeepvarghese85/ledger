@@ -215,6 +215,20 @@ def main():
           traceback.print_exc()
           stale.append(f.get("name", "?"))
 
+    print("Exchange rates")
+    for pair in ("USDINR", "HKDINR", "CNYINR"):
+        d = get("https://query1.finance.yahoo.com/v8/finance/chart/%s=X?interval=1d&range=5d" % pair)
+        meta = (((d or {}).get("chart") or {}).get("result") or [{}])[0].get("meta") or {}
+        px = meta.get("regularMarketPrice")
+        key = "FX:" + pair
+        if px:
+            prices[key] = {"price": float(px), "name": pair[:3] + " to INR", "kind": "fx",
+                           "date": datetime.now(IST).strftime("%d-%m-%Y")}
+            print("   %-10s %10.4f" % (pair, px))
+        elif key in oldp:
+            prices[key] = oldp[key]
+            print("   %-10s  kept the previous rate" % pair)
+
     print("Stocks")
     for s in w.get("stocks", []):
       try:
