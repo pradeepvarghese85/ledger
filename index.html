@@ -103,7 +103,7 @@ var isLoan=function(k){return k==KINDS[5]||k==KINDS[6]};
 /* ---------- store ---------- */
 function blank(){return{inv:[],inc:[],lia:[],tx:[],itr:{}}}
 function load(){try{var r=localStorage.getItem("ledger");if(r){var o=JSON.parse(r);["inv","inc","lia","tx"].forEach(function(k){if(!Array.isArray(o[k]))o[k]=[]});if(!o.itr)o.itr={};return o}}catch(e){}return blank()}
-var D=load(),page="dash",dr=null,err="",ok="",merge=true,slab=30,fy=(new Date().getMonth()>=3?new Date().getFullYear():new Date().getFullYear()-1);
+var D=load(),page="dash",dr=null,err="",ok="",merge=true,filt="All",sub="All",slab=30,fy=(new Date().getMonth()>=3?new Date().getFullYear():new Date().getFullYear()-1);
 function save(){try{localStorage.setItem("ledger",JSON.stringify(D))}catch(e){err="This browser would not save the change. Copy your backup text on the Data tab."}}
 
 /* ---------- helpers ---------- */
@@ -179,8 +179,20 @@ function dash(){var t=totals();
 function portfolio(){
  var h='<div class="head"><h1>Portfolio</h1><button class="btn" data-dr="inv">Add a holding</button></div><p class="lede">Shares, funds, gold, deposits and retirement savings.</p>';
  if(!D.inv.length)return h+empty("No holdings yet. Import a statement on the Data tab, or add one by hand.","Import a file","data");
- h+=priceLine();h+='<label class="sw"><input type="checkbox" id="merge"'+(merge?" checked":"")+'> Combine the same holding across brokers and folios</label>';
- if(merge){var M={},o=[];D.inv.forEach(function(r){var k=r.cat+"|"+(r.name||"").toLowerCase().replace(/\b(limited|ltd)\b/g,"").replace(/[^a-z0-9]/g,"");
+ var groups=[],subs=[];
+ D.inv.forEach(function(r){var g=group(r);if(groups.indexOf(g[0])<0)groups.push(g[0]);if(g[0]==filt&&subs.indexOf(g[1])<0)subs.push(g[1])});
+ groups.sort();subs.sort();
+ if(filt!="All"&&groups.indexOf(filt)<0){filt="All";sub="All"}
+ if(sub!="All"&&subs.indexOf(sub)<0)sub="All";
+ var keep=function(r){var g=group(r);return(filt=="All"||g[0]==filt)&&(sub=="All"||g[1]==sub)};
+ var shown=D.inv.filter(keep),shownV=shown.reduce(function(a,r){return a+num(r.value)},0),
+  allV=D.inv.reduce(function(a,r){return a+num(r.value)},0);
+ h+=priceLine();
+ h+='<div class="panel" style="padding:12px 16px;display:flex;gap:18px;flex-wrap:wrap;align-items:end"><div><label for="filt">Asset class</label><select id="filt"><option>All</option>'+groups.map(function(g){return'<option'+(g==filt?" selected":"")+'>'+esc(g)+'</option>'}).join("")+'</select></div>'+
+  (filt!="All"&&subs.length>1?'<div><label for="sub">Within it</label><select id="sub"><option>All</option>'+subs.map(function(x){return'<option'+(x==sub?" selected":"")+'>'+esc(x)+'</option>'}).join("")+'</select></div>':"")+
+  '<div><label>Showing</label><b style="font:500 17px var(--serif)">'+shown.length+' of '+D.inv.length+' · '+inr(shownV)+(allV&&filt!="All"?' · '+(shownV/allV*100).toFixed(1)+'% of everything':"")+'</b></div></div>';
+ h+='<label class="sw"><input type="checkbox" id="merge"'+(merge?" checked":"")+'> Combine the same holding across brokers and folios</label>';
+ if(merge){var M={},o=[];shown.forEach(function(r){var k=r.cat+"|"+(r.name||"").toLowerCase().replace(/\b(limited|ltd)\b/g,"").replace(/[^a-z0-9]/g,"");
    if(!M[k]){M[k]={r:r,pl:[],q:0,i:0,v:0,part:false};o.push(M[k])}var m=M[k];if(r.plat&&m.pl.indexOf(r.plat)<0)m.pl.push(r.plat);
    m.q+=num(r.qty);m.v+=num(r.value);if(r.invested===""||r.invested==null)m.part=true;else m.i+=num(r.invested)});
   var tv=o.reduce(function(a,m){return a+m.v},0);
@@ -188,7 +200,7 @@ function portfolio(){
    o.sort(function(a,b){return b.v-a.v}).map(function(m){return'<tr><td>'+esc(m.r.name)+'</td><td>'+esc(m.r.cat)+'</td><td>'+esc(m.r.sub=="-"?"":m.r.sub)+'</td><td>'+esc(m.pl.join(" + "))+'</td><td class="n">'+(m.q?Math.round(m.q*1e4)/1e4:"-")+'</td><td class="n">'+(m.i?inr(m.i)+(m.part?" *":""):"-")+'</td><td class="n">'+inr(m.v)+'</td><td class="n">'+(tv?(m.v/tv*100).toFixed(1):"0")+'%</td></tr>'}).join(""),
    'Rows with the same name and type are added together. A star means the cost was missing for part of it. Untick the box above to edit single entries.')}
  else h+=rows('<th>Holding</th><th>Type</th><th>Fund type</th><th>Held in</th><th>Feed code</th><th class="n">Units</th><th class="n">Put in</th><th class="n">Value</th><th>Status</th><th></th>',
-  D.inv.map(function(r,i){return'<tr><td>'+esc(r.name)+'</td><td>'+esc(r.cat)+'</td><td>'+esc(r.sub=="-"?"":r.sub)+'</td><td>'+esc(r.plat)+'</td><td>'+esc(r.code||"")+'</td><td class="n">'+(r.qty===""?"-":r.qty)+'</td><td class="n">'+(r.invested===""?"-":inr(r.invested))+'</td><td class="n">'+inr(r.value)+'</td><td><span class="pill">'+esc(r.status)+'</span></td><td><button class="btn link" data-dr="inv" data-i="'+i+'">Edit</button><button class="btn link danger" data-del="inv|'+i+'">Delete</button></td></tr>'}).join(""),"");
+  D.inv.map(function(r,i){return keep(r)?'<tr><td>'+esc(r.name)+'</td><td>'+esc(r.cat)+'</td><td>'+esc(r.sub=="-"?"":r.sub)+'</td><td>'+esc(r.plat)+'</td><td>'+esc(r.code||"")+'</td><td class="n">'+(r.qty===""?"-":r.qty)+'</td><td class="n">'+(r.invested===""?"-":inr(r.invested))+'</td><td class="n">'+inr(r.value)+'</td><td><span class="pill">'+esc(r.status)+'</span></td><td><button class="btn link" data-dr="inv" data-i="'+i+'">Edit</button><button class="btn link danger" data-del="inv|'+i+'">Delete</button></td></tr>':""}).join(""),"");
  return h}
 
 function activity(){
@@ -470,6 +482,8 @@ document.addEventListener("keydown",function(e){if(e.key=="Escape"&&dr){dr=null;
  if(e.key=="Enter"&&e.target.className==""&&e.target.getAttribute&&e.target.getAttribute("data-go")){page=e.target.getAttribute("data-go");render()}});
 document.addEventListener("change",function(e){var t=e.target;
  if(t.id=="merge"){merge=t.checked;render();return}
+ if(t.id=="filt"){filt=t.value;sub="All";render();return}
+ if(t.id=="sub"){sub=t.value;render();return}
  if(t.id=="fy"){fy=+t.value;render();return}
  if(t.id=="slab"){slab=parseInt(t.value,10);render();return}
  if(t.id=="t_kind"&&dr){dr.kind=t.value;render();return}
