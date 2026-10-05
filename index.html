@@ -241,9 +241,9 @@ function data(){
  h+='<h2>What the last update fetched</h2>';
  if(!PXm||!PXm.prices)h+='<p class="note">No price file loaded.</p>';
  else{var ks=Object.keys(PXm.prices).sort();
-  h+=rows('<th>Code</th><th>Name</th><th>Matched scheme</th><th class="n">Price</th><th>As on</th>',
-   ks.map(function(k){var p=PXm.prices[k];return'<tr><td>'+esc(k)+'</td><td>'+esc(p.name||"")+'</td><td>'+esc(p.matched||"")+'</td><td class="n">'+(p.price||"")+'</td><td>'+esc(p.date||"")+'</td></tr>'}).join(""),
-   'Check the matched scheme for every fund once. If one is wrong, correct its search text in watchlist.json, delete its line from data/fund-codes.json so the wrong match is forgotten, and run the job again.')}
+  h+=rows('<th>Code</th><th>Name</th><th>Matched scheme</th><th>How</th><th class="n">Price</th><th>As on</th>',
+   ks.map(function(k){var p=PXm.prices[k];return'<tr><td>'+esc(k)+'</td><td>'+esc(p.name||"")+'</td><td>'+esc(p.matched||"")+'</td><td>'+esc(p.how||"")+'</td><td class="n">'+(p.price||"")+'</td><td>'+esc(p.date||"")+'</td></tr>'}).join(""),
+   'Funds marked "matched by ISIN" are exact. Anything marked "matched by name" is a guess worth checking: add that fund\'s ISIN to watchlist.json to make it exact.')}
  h+='<h2>Backup</h2><div class="panel" style="padding:16px"><p class="note">Clearing your browser data erases everything here. Copy this text somewhere safe, and paste it back to restore.</p><textarea id="bk" rows="6">'+esc(JSON.stringify(D))+'</textarea><div class="acts"><button class="btn ghost" data-restore="1">Restore from the text above</button><button class="btn ghost danger" data-wipe="1">Erase everything</button></div></div>';
  return h}
 
