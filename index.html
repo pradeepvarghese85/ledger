@@ -238,6 +238,12 @@ function data(){
  h+=casReview();
  h+='<h2>Broker or spreadsheet file</h2><div class="panel" style="padding:16px"><label for="shf">A holdings file from your broker (.csv, .xlsx)</label><input type="file" id="shf" accept=".csv,.xlsx,.xls"><p class="note">It looks for columns named like instrument or symbol, quantity, average price and current value. Anything it cannot match is left for you to check.</p></div>';
  h+=sheetReview();
+ h+='<h2>What the last update fetched</h2>';
+ if(!PXm||!PXm.prices)h+='<p class="note">No price file loaded.</p>';
+ else{var ks=Object.keys(PXm.prices).sort();
+  h+=rows('<th>Code</th><th>Name</th><th>Matched scheme</th><th class="n">Price</th><th>As on</th>',
+   ks.map(function(k){var p=PXm.prices[k];return'<tr><td>'+esc(k)+'</td><td>'+esc(p.name||"")+'</td><td>'+esc(p.matched||"")+'</td><td class="n">'+(p.price||"")+'</td><td>'+esc(p.date||"")+'</td></tr>'}).join(""),
+   'Check the matched scheme for every fund once. If one is wrong, correct its search text in watchlist.json, delete its line from data/fund-codes.json so the wrong match is forgotten, and run the job again.')}
  h+='<h2>Backup</h2><div class="panel" style="padding:16px"><p class="note">Clearing your browser data erases everything here. Copy this text somewhere safe, and paste it back to restore.</p><textarea id="bk" rows="6">'+esc(JSON.stringify(D))+'</textarea><div class="acts"><button class="btn ghost" data-restore="1">Restore from the text above</button><button class="btn ghost danger" data-wipe="1">Erase everything</button></div></div>';
  return h}
 
@@ -349,11 +355,12 @@ function sheetAdd(){var plat=val("shplat"),mkt=val("shmkt")||"India",add=[];
 
 /* ---------- nightly price file ---------- */
 var PX={},PXm=null,PXerr="";
-function applyPrices(){var n=0;
- D.inv.forEach(function(r){var p=r.code?PX[r.code]:null;delete r.live;
-  if(!p||!p.price||!(num(r.qty)>0))return;
-  r.value=Math.round(num(r.qty)*p.price*100)/100;r.live=p.date||PXm.updated;n++});
- if(n)save();return n}
+function applyPrices(){var n=0,changed=false;
+ D.inv.forEach(function(r){var p=r.code?PX[r.code]:null;
+  if(!p||!p.price||!(num(r.qty)>0)){if(r.live){delete r.live;changed=true}return}
+  var v=Math.round(num(r.qty)*p.price*100)/100,tag=p.date||PXm.updated;
+  if(r.value!==v||r.live!==tag){r.value=v;r.live=tag;changed=true}n++});
+ if(changed)save();return n}
 function loadPrices(){
  if(typeof fetch!="function"){PXerr="This browser cannot load the price file.";render();return}
  fetch("data/prices.json",{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.json()})
@@ -436,6 +443,7 @@ function saveTx(){var e=dr.i>=0?D.tx[dr.i]:null,kind=val("t_kind")||dr.kind||KIN
 /* ---------- shell ---------- */
 var PAGES=[["dash","Dashboard",dash],["port","Portfolio",portfolio],["act","Sales and withdrawals",activity],["cash","Income and bills",cash],["tax","Tax",taxPage],["data","Data",data]];
 function render(){
+ if(PXm)applyPrices();
  document.getElementById("nav").innerHTML=PAGES.map(function(p){return'<a tabindex="0" class="'+(page==p[0]?"on":"")+'" data-go="'+p[0]+'">'+p[1]+'</a>'}).join("");
  var body=PAGES.filter(function(p){return p[0]==page})[0][2]();
  if(ok)body+='<p class="ok">'+esc(ok)+'</p>';

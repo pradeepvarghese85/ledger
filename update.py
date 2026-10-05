@@ -44,17 +44,44 @@ def load(path, default):
         return default
 
 
+STOP = {"fund", "scheme", "plan", "direct", "regular", "growth", "option", "the", "and"}
+
+
+def words(s):
+    s = s.lower().replace("&", " and ")
+    s = "".join(c if c.isalnum() else " " for c in s)
+    return [t for t in s.split() if len(t) > 2 and t not in STOP]
+
+
+def flat(s):
+    return "".join(c for c in s.lower() if c.isalnum())   # so "mid cap" == "midcap"
+
+
 def score(name, want):
-    """Rough match score between a scheme name and what we asked for."""
-    n, w = name.lower(), want.lower()
-    s = sum(2 for t in w.replace("&", " ").split() if len(t) > 2 and t in n)
+    """How well a scheme name matches what was asked for.
+
+    Every word asked for must appear, and every extra word in the scheme name
+    counts against it. That is what stops 'Kotak Nifty Midcap 50 Index Fund'
+    from beating 'Kotak Mid Cap Fund'.
+    """
+    n, nf = name.lower(), flat(name)
+    asked, found = words(want), words(name)
+    af = flat(want)
+    s = 0
+    for t in asked:
+        s += 3 if t in nf else -6
+    for t in found:
+        if t not in af:
+            s -= 6
     if "direct" in n:
         s += 6
     if "growth" in n:
         s += 4
-    for bad in ("idcw", "dividend", "payout", "reinvest", "regular plan", "bonus"):
+    for bad in ("idcw", "dividend", "payout", "reinvest", "bonus"):
         if bad in n:
-            s -= 8
+            s -= 12
+    if "regular plan" in n or n.rstrip().endswith("regular"):
+        s -= 12
     return s
 
 
@@ -65,9 +92,12 @@ def find_scheme(search):
     res = [r for r in res if isinstance(r, dict) and r.get("schemeName")]
     if not res:
         return None, None
-    best = max(res, key=lambda r: score(r.get("schemeName", ""), search))
-    if score(best.get("schemeName", ""), search) < 6:
+    ranked = sorted(res, key=lambda r: score(r["schemeName"], search), reverse=True)
+    best = ranked[0]
+    if score(best["schemeName"], search) < 6:
         return None, None
+    for r in ranked[1:3]:
+        print("      runner-up: %s" % r["schemeName"])
     return best.get("schemeCode"), best.get("schemeName")
 
 
@@ -82,6 +112,8 @@ def main():
     for f in w.get("funds", []):
       try:
           code, sch = f["code"], codes.get(f["code"])
+          if f.get("scheme"):                    # pinned by hand in watchlist.json
+              sch = {"scheme": f["scheme"], "matched": "pinned in watchlist"}
           if not sch:
               sc, name = find_scheme(f["search"])
               if sc:
