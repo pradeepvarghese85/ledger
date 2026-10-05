@@ -13,11 +13,21 @@ jobs:
   update:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Get the files
+        uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - name: Set up Python
+        uses: actions/setup-python@v6
         with:
           python-version: "3.12"
+
+      - name: Check the files are where they should be
+        run: |
+          echo "Files in this folder:"
+          ls -la
+          echo "Files in data:"
+          ls -la data || echo "THERE IS NO data FOLDER. Create data/watchlist.json in the repository."
+          python -c "import json;d=json.load(open('data/watchlist.json'));print('watchlist loaded:',len(d.get('stocks',[])),'stocks,',len(d.get('funds',[])),'funds')"
 
       - name: Fetch prices
         run: python update.py
@@ -27,5 +37,11 @@ jobs:
           git config user.name "price bot"
           git config user.email "actions@github.com"
           git add data/prices.json data/fund-codes.json
-          git diff --staged --quiet || git commit -m "Prices $(date -u +'%Y-%m-%d')"
-          git push
+          if git diff --staged --quiet; then
+            echo "Nothing changed, so nothing to save."
+          else
+            git commit -m "Prices $(date -u +'%Y-%m-%d')"
+            git pull --rebase origin "${GITHUB_REF_NAME}" || true
+            git push origin "HEAD:${GITHUB_REF_NAME}"
+            echo "Saved."
+          fi
