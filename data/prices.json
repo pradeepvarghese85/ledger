@@ -1,7 +1,7 @@
 {
  "count": 37,
  "notes": [
-  "Matched Kotak Midcap to: Kotak Nifty Midcap 50 Index Fund - Direct Plan - GROWTH"
+  "Could not find a scheme for Kotak Midcap. Edit its 'search' text in watchlist.json."
  ],
  "prices": {
   "ASHOKA.NS": {
@@ -264,6 +264,8 @@
    "price": 21.06
   }
  },
- "stale": [],
- "updated": "05-10-2026 18:18 IST"
+ "stale": [
+  "Kotak Midcap"
+ ],
+ "updated": "05-10-2026 19:08 IST"
 }
