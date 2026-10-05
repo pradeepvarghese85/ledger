@@ -1,7 +1,7 @@
 {
  "count": 37,
  "notes": [
-  "AMFI's NAV file could not be downloaded on this run."
+  "AMFI's file would not download, so NAVs came from mfapi.in instead."
  ],
  "prices": {
   "ASHOKA.NS": {
@@ -62,101 +62,129 @@
   },
   "MF:AXIS-ELSS": {
    "date": "01-10-2026",
+   "how": "matched by ISIN (mfapi)",
    "kind": "nav",
    "matched": "Axis ELSS- Tax Saver Fund - Direct Plan - Growth Option",
    "name": "Axis ELSS Tax Saver",
-   "price": 104.808
+   "price": 104.808,
+   "scheme": "120503"
   },
   "MF:AXIS-LARGECAP": {
    "date": "01-10-2026",
+   "how": "matched by ISIN (mfapi)",
    "kind": "nav",
-   "matched": "Axis Large & Mid Cap Fund - Direct Plan - Growth Option",
+   "matched": "Axis Large Cap Fund - Direct Plan - Growth Option",
    "name": "Axis Large Cap",
-   "price": 37.21
+   "price": 65.82,
+   "scheme": "120465"
   },
   "MF:CANARA-ELSS": {
    "date": "01-10-2026",
+   "how": "matched by ISIN (mfapi)",
    "kind": "nav",
    "matched": "Canara Robeco ELSS - Tax Saver Fund - Direct Plan - GROWTH OPTION",
    "name": "Canara Robeco ELSS",
-   "price": 190.92
+   "price": 190.92,
+   "scheme": "118285"
   },
   "MF:DSP-ELSS": {
    "date": "01-10-2026",
+   "how": "matched by ISIN (mfapi)",
    "kind": "nav",
    "matched": "DSP ELSS Tax Saver Fund - Direct Plan - Growth",
    "name": "DSP ELSS Tax Saver",
-   "price": 146.249
+   "price": 146.249,
+   "scheme": "119242"
   },
   "MF:HDFC-BAF": {
    "date": "01-10-2026",
+   "how": "matched by ISIN (mfapi)",
    "kind": "nav",
    "matched": "HDFC Balanced Advantage Fund - Direct Plan - Growth Option",
    "name": "HDFC Balanced Advantage",
-   "price": 546.112
+   "price": 546.112,
+   "scheme": "118968"
   },
   "MF:ICICI-LARGECAP": {
    "date": "01-10-2026",
+   "how": "matched by ISIN (mfapi)",
    "kind": "nav",
    "matched": "ICICI Prudential Large Cap Fund (erstwhile Bluechip Fund) - Direct Plan - Growth",
    "name": "ICICI Pru Large Cap",
-   "price": 112.29
+   "price": 112.29,
+   "scheme": "120586"
   },
   "MF:KOTAK-MIDCAP": {
    "date": "01-10-2026",
+   "how": "matched by ISIN (mfapi)",
    "kind": "nav",
-   "matched": "Kotak Nifty Midcap 50 Index Fund - Direct Plan - GROWTH",
-   "name": "Kotak Midcap",
-   "price": 10.361
+   "matched": "Kotak Mid Cap Fund - Direct Plan - Growth",
+   "name": "Kotak Mid Cap",
+   "price": 160.202,
+   "scheme": "119775"
   },
   "MF:MIRAE-ELSS": {
    "date": "01-10-2026",
+   "how": "matched by ISIN (mfapi)",
    "kind": "nav",
    "matched": "Mirae Asset ELSS Tax Saver Fund - Direct Plan - Growth",
    "name": "Mirae ELSS Tax Saver",
-   "price": 54.041
+   "price": 54.041,
+   "scheme": "135781"
   },
   "MF:MIRAE-LARGEMID": {
    "date": "01-10-2026",
+   "how": "matched by ISIN (mfapi)",
    "kind": "nav",
    "matched": "Mirae Asset Large & Midcap Fund - Direct Plan - Growth",
    "name": "Mirae Large & Midcap",
-   "price": 167.653
+   "price": 167.653,
+   "scheme": "118834"
   },
   "MF:NIPPON-USEQ": {
    "date": "01-10-2026",
+   "how": "matched by ISIN (mfapi)",
    "kind": "nav",
    "matched": "Nippon India US Equity Opportunities Fund - Direct Plan - Growth Option",
    "name": "Nippon India US Equity Opp",
-   "price": 47.9399
+   "price": 47.9399,
+   "scheme": "134923"
   },
   "MF:PPFAS-FLEXI": {
    "date": "01-10-2026",
+   "how": "matched by ISIN (mfapi)",
    "kind": "nav",
    "matched": "Parag Parikh Flexi Cap Fund - Direct Plan - Growth",
    "name": "Parag Parikh Flexi Cap",
-   "price": 88.2569
+   "price": 88.2569,
+   "scheme": "122639"
   },
   "MF:SBI-SMALLCAP": {
    "date": "01-10-2026",
+   "how": "matched by ISIN (mfapi)",
    "kind": "nav",
    "matched": "SBI SMALL CAP FUND - Direct Plan - Growth",
    "name": "SBI Small Cap",
-   "price": 205.754
+   "price": 205.754,
+   "scheme": "125497"
   },
   "MF:SUNDARAM-SERVICES": {
    "date": "01-10-2026",
+   "how": "matched by ISIN (mfapi)",
    "kind": "nav",
    "matched": "Sundaram Services Fund - Direct Plan - GROWTH",
    "name": "Sundaram Services",
-   "price": 38.0015
+   "price": 38.0015,
+   "scheme": "144835"
   },
   "MF:TATA-ELSS": {
    "date": "01-10-2026",
+   "how": "matched by ISIN (mfapi)",
    "kind": "nav",
    "matched": "Tata ELSS - Tax Saver Fund - Direct Plan - Growth Option",
    "name": "Tata ELSS Tax Saving",
-   "price": 51.46
+   "price": 51.46,
+   "scheme": "132756"
   },
   "MSUMI.NS": {
    "currency": "INR",
@@ -264,21 +292,6 @@
    "price": 21.06
   }
  },
- "stale": [
-  "Mirae Large & Midcap",
-  "Parag Parikh Flexi Cap",
-  "SBI Small Cap",
-  "Kotak Mid Cap",
-  "ICICI Pru Large Cap",
-  "HDFC Balanced Advantage",
-  "DSP ELSS Tax Saver",
-  "Mirae ELSS Tax Saver",
-  "Tata ELSS Tax Saving",
-  "Nippon India US Equity Opp",
-  "Axis ELSS Tax Saver",
-  "Axis Large Cap",
-  "Canara Robeco ELSS",
-  "Sundaram Services"
- ],
- "updated": "05-10-2026 19:38 IST"
+ "stale": [],
+ "updated": "05-10-2026 19:47 IST"
 }
