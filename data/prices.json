@@ -244,7 +244,7 @@
    "date": "05-10-2026",
    "kind": "price",
    "name": "Invesco NASDAQ 100 ETF",
-   "price": 310.79
+   "price": 310.97
   },
   "RENUKA.NS": {
    "currency": "INR",
@@ -318,5 +318,5 @@
   }
  },
  "stale": [],
- "updated": "05-10-2026 23:13 IST"
+ "updated": "05-10-2026 23:17 IST"
 }
