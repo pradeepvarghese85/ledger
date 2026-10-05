@@ -11,7 +11,7 @@ Nothing here can fail the run: anything that cannot be fetched keeps its previou
 price and is listed under "stale" in the output, so the dashboard can say so.
 """
 
-import json, os, time, urllib.request, urllib.parse, urllib.error
+import json, os, sys, time, traceback, urllib.request, urllib.parse, urllib.error
 from datetime import datetime, timezone, timedelta
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -60,6 +60,9 @@ def score(name, want):
 
 def find_scheme(search):
     res = get("https://api.mfapi.in/mf/search?q=" + urllib.parse.quote(search))
+    if not isinstance(res, list):
+        return None, None
+    res = [r for r in res if isinstance(r, dict) and r.get("schemeName")]
     if not res:
         return None, None
     best = max(res, key=lambda r: score(r.get("schemeName", ""), search))
@@ -77,55 +80,65 @@ def main():
 
     print("Funds")
     for f in w.get("funds", []):
-        code, sch = f["code"], codes.get(f["code"])
-        if not sch:
-            sc, name = find_scheme(f["search"])
-            if sc:
-                sch = {"scheme": sc, "matched": name}
-                codes[code] = sch
-                notes.append("Matched %s to: %s" % (f["name"], name))
-                print("   matched %s -> %s (%s)" % (f["name"], name, sc))
-            else:
-                print("   NO MATCH for", f["name"])
-                notes.append("Could not find a scheme for %s. Edit its 'search' text in watchlist.json." % f["name"])
-        if sch:
-            d = get("https://api.mfapi.in/mf/%s/latest" % sch["scheme"])
-            row = (d or {}).get("data") or []
-            if row:
-                prices[code] = {
-                    "price": float(row[0]["nav"]),
-                    "date": row[0]["date"],
-                    "name": f["name"],
-                    "matched": sch.get("matched", ""),
-                    "kind": "nav",
-                }
-                print("   %-34s %10s  %s" % (f["name"], row[0]["nav"], row[0]["date"]))
-                continue
-        if code in oldp:
-            prices[code] = oldp[code]
-        stale.append(f["name"])
+      try:
+          code, sch = f["code"], codes.get(f["code"])
+          if not sch:
+              sc, name = find_scheme(f["search"])
+              if sc:
+                  sch = {"scheme": sc, "matched": name}
+                  codes[code] = sch
+                  notes.append("Matched %s to: %s" % (f["name"], name))
+                  print("   matched %s -> %s (%s)" % (f["name"], name, sc))
+              else:
+                  print("   NO MATCH for", f["name"])
+                  notes.append("Could not find a scheme for %s. Edit its 'search' text in watchlist.json." % f["name"])
+          if sch:
+              d = get("https://api.mfapi.in/mf/%s/latest" % sch["scheme"])
+              row = (d or {}).get("data") or []
+              if row:
+                  prices[code] = {
+                      "price": float(row[0]["nav"]),
+                      "date": row[0]["date"],
+                      "name": f["name"],
+                      "matched": sch.get("matched", ""),
+                      "kind": "nav",
+                  }
+                  print("   %-34s %10s  %s" % (f["name"], row[0]["nav"], row[0]["date"]))
+                  continue
+          if code in oldp:
+              prices[code] = oldp[code]
+          stale.append(f["name"])
+      except Exception:
+        print("   error on", f.get("name", "?"))
+        traceback.print_exc()
+        stale.append(f.get("name", "?"))
 
     print("Stocks")
     for s in w.get("stocks", []):
-        code = s["code"]
-        d = get("https://query1.finance.yahoo.com/v8/finance/chart/%s?interval=1d&range=5d" % urllib.parse.quote(code))
-        meta = (((d or {}).get("chart") or {}).get("result") or [{}])[0].get("meta") or {}
-        px = meta.get("regularMarketPrice")
-        if px:
-            ts = meta.get("regularMarketTime")
-            prices[code] = {
-                "price": float(px),
-                "date": datetime.fromtimestamp(ts, IST).strftime("%d-%m-%Y") if ts else "",
-                "name": s["name"],
-                "currency": meta.get("currency", ""),
-                "kind": "price",
-            }
-            print("   %-34s %10.2f" % (s["name"], px))
-        else:
-            if code in oldp:
-                prices[code] = oldp[code]
-            stale.append(s["name"])
-            print("   %-34s  no price" % s["name"])
+      try:
+          code = s["code"]
+          d = get("https://query1.finance.yahoo.com/v8/finance/chart/%s?interval=1d&range=5d" % urllib.parse.quote(code))
+          meta = (((d or {}).get("chart") or {}).get("result") or [{}])[0].get("meta") or {}
+          px = meta.get("regularMarketPrice")
+          if px:
+              ts = meta.get("regularMarketTime")
+              prices[code] = {
+                  "price": float(px),
+                  "date": datetime.fromtimestamp(ts, IST).strftime("%d-%m-%Y") if ts else "",
+                  "name": s["name"],
+                  "currency": meta.get("currency", ""),
+                  "kind": "price",
+              }
+              print("   %-34s %10.2f" % (s["name"], px))
+          else:
+              if code in oldp:
+                  prices[code] = oldp[code]
+              stale.append(s["name"])
+              print("   %-34s  no price" % s["name"])
+      except Exception:
+        print("   error on", s.get("name", "?"))
+        traceback.print_exc()
+        stale.append(s.get("name", "?"))
 
     out = {
         "updated": datetime.now(IST).strftime("%d-%m-%Y %H:%M IST"),
@@ -140,7 +153,15 @@ def main():
     with open(CACHE, "w") as f:
         json.dump(codes, f, indent=1, sort_keys=True)
     print("\nWrote %d prices. %d could not be fetched." % (len(prices), len(stale)))
+    if not prices:
+        print("\nNOTHING was fetched. Both sources failed, or watchlist.json did not load.")
+        print("watchlist has %d stocks and %d funds" % (len(w.get("stocks", [])), len(w.get("funds", []))))
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception:
+        print("\nThe script stopped with an error. The line that matters is the last one:")
+        traceback.print_exc()
+        sys.exit(1)
