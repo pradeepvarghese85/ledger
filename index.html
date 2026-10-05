@@ -584,7 +584,7 @@ function navOn(code,isoDate){if(!PXm||!PXm.history||!PXm.history[code])return nu
  for(var i=0;i<ks.length;i++){if(ks[i]<=isoDate)best=ks[i];else break}
  if(!best)return null;
  var gap=Math.round((new Date(isoDate)-new Date(best))/864e5);
- return gap>6?null:{price:H[best],date:best,gap:gap}}
+ return{price:H[best],date:best,gap:gap,exact:gap===0}}
 function dueSips(){var out=[],today=new Date();today.setHours(0,0,0,0);
  D.inv.forEach(function(r,i){if(!(num(r.mc)>0)||r.status!="Active"||!num(r.day))return;
   var from=r.lastSip?new Date(r.lastSip):new Date(today.getTime()-45*864e5),
@@ -595,25 +595,31 @@ function dueSips(){var out=[],today=new Date();today.setHours(0,0,0,0);
    d=new Date(d.getFullYear(),d.getMonth()+1,1);n++}});
  out.sort(function(a,b){return a.date-b.date});return out}
 function confirmSip(k,skip){var due=dueSips(),x=due[k];if(!x)return;
- var r=D.inv[x.i],amt=num(val("sa"+k))||num(r.mc),nav=num(val("sn"+k));
+ var r=D.inv[x.i],amt=num(val("sa"+k))||num(r.mc),nav=num(val("sn"+k)),when=val("sd"+k)||x.iso;
+ if(when<x.iso)when=x.iso;
  if(!skip){
   if(!(nav>0)){err="No price for "+x.iso+", so type the NAV or price you were given.";render();return}
   var units=Math.round(amt/nav*1e4)/1e4;
   r.qty=Math.round((num(r.qty)+units)*1e4)/1e4;
   if(r.invested!==""&&r.invested!=null)r.invested=Math.round((num(r.invested)+amt)*100)/100;
   r.value=Math.round(num(r.qty)*nav*100)/100;
-  D.sips.push({name:r.name,code:r.code||"",date:x.iso,amount:amt,nav:nav,units:units});
-  ok="Added "+units+" units of "+r.name+"."}
- else ok="Marked "+r.name+" as not taken on "+x.iso+".";
- r.lastSip=x.iso;err="";save();render()}
+  D.sips.push({name:r.name,code:r.code||"",date:when,amount:amt,nav:nav,units:units});
+  ok="Added "+units+" units of "+r.name+" at "+nav+" on "+when+"."}
+ else ok="Marked "+r.name+" as not taken on "+when+".";
+ r.lastSip=when;err="";save();render()}
+var sipDate={};
 function sipDue(){var due=dueSips();if(!due.length)return"";
- var h='<h2>Instalments to confirm</h2><p class="note">The dashboard cannot see your actual purchases, so it works the units out from the amount and that day&rsquo;s price. Check the amount, then confirm. If an instalment did not go through, press Not taken.</p>';
+ var h='<h2>Instalments to confirm</h2><p class="note">The dashboard cannot see your actual purchases, so it works the units out from the amount and the price on the day. Change the date if your statement shows a different one, check the amount, then confirm. A price is filled in only when it belongs to that exact day, so a day whose NAV is not out yet waits for the next update. If an instalment did not go through, press Not taken.</p>';
  h+='<div class="panel tw"><table><tr><th>Date</th><th>Holding</th><th>Amount</th><th>Price used</th><th class="n">Units</th><th></th></tr>';
- due.forEach(function(x,k){var p=x.r.code?navOn(x.r.code,x.iso):null,nav=p?p.price:"",
-  u=nav?Math.round(num(x.r.mc)/nav*1e4)/1e4:"";
-  h+='<tr><td>'+x.date.toLocaleDateString("en-IN",{day:"numeric",month:"short"})+(x.moved?'<br><span class="note">moved, '+esc(x.why)+'</span>':"")+'</td><td>'+esc(x.r.name)+'</td>'+
+ due.forEach(function(x,k){var when=sipDate[x.r.name+"|"+x.iso]||x.iso,
+  p=x.r.code?navOn(x.r.code,when):null,nav=(p&&p.exact)?p.price:"",
+  amt=num(x.r.mc),u=nav?Math.round(amt/nav*1e4)/1e4:"",note;
+  if(p&&p.exact)note='<span class="note">price of '+esc(p.date)+'</span>';
+  else if(p)note='<span class="down">no price for '+esc(when)+' yet. Nearest is '+p.price+' of '+esc(p.date)+'</span>';
+  else note='<span class="down">no price for that day, type it in</span>';
+  h+='<tr><td><input type="date" id="sd'+k+'" value="'+esc(when)+'" style="width:152px">'+(x.moved?'<br><span class="note">due the '+x.date.getDate()+", "+esc(x.why)+'</span>':"")+'</td><td>'+esc(x.r.name)+'</td>'+
    '<td><input id="sa'+k+'" type="number" step="any" value="'+esc(x.r.mc)+'" style="width:110px"></td>'+
-   '<td><input id="sn'+k+'" type="number" step="any" value="'+esc(nav)+'" style="width:120px">'+(p?'<br><span class="note">'+(p.gap?esc(p.date)+", "+p.gap+" day(s) earlier":"that day")+'</span>':'<br><span class="down">no price, type it in</span>')+'</td>'+
+   '<td><input id="sn'+k+'" type="number" step="any" value="'+esc(nav)+'" style="width:120px"><br>'+note+'</td>'+
    '<td class="n">'+(u||"-")+'</td><td><button class="btn" data-sip="'+k+'">Confirm</button> <button class="btn link" data-skip="'+k+'">Not taken</button></td></tr>'});
  return h+'</table></div>'}
 function sipLog(){var L=(D.sips||[]).slice().reverse();if(!L.length)return"";
@@ -729,6 +735,7 @@ document.addEventListener("change",function(e){var t=e.target;
  if(t.id=="t_kind"&&dr){dr.kind=t.value;dr.gone=false;render();return}
  if(t.id=="t_item"&&dr){var g2=(t.value=="gone");if(g2!=dr.gone){dr.gone=g2;render()}return}
  if(t.id=="t_apply"&&dr){dr.apply=t.value;return}
+ if(/^sd[0-9]+$/.test(t.id)){var dd=dueSips(),xx=dd[+t.id.slice(2)];if(xx){sipDate[xx.r.name+"|"+xx.iso]=t.value;render()}return}
  if(/^i_/.test(t.id)){D.itr[t.id.slice(2)]=t.value===""?"":num(t.value);save();return}
  if(t.id=="casf"&&t.files[0]){casFile=t.files[0];casName=casFile.name;cas=null;err="";render();return}
  if(t.id=="shf"&&t.files[0]){readSheet(t.files[0]);return}});

@@ -198,12 +198,43 @@ def pick(f, by_isin, by_code, rows):
     return ranked[0], "matched by name"
 
 
+def past_navs(scheme):
+    """The last few weeks of NAVs for one scheme, so a late confirmation finds its own day."""
+    if not scheme:
+        return {}
+    d = get("https://api.mfapi.in/mf/%s" % scheme)
+    rows = (d or {}).get("data") or []
+    out = {}
+    for row in rows[:45]:
+        iso = to_iso(row.get("date"))
+        if iso:
+            try:
+                out[iso] = float(row["nav"])
+            except Exception:
+                pass
+    return out
+
+
+def past_closes(code):
+    """A month of daily closes, from the same chart request that gives the latest price."""
+    d = get("https://query1.finance.yahoo.com/v8/finance/chart/%s?interval=1d&range=1mo"
+            % urllib.parse.quote(code))
+    res = (((d or {}).get("chart") or {}).get("result") or [{}])[0]
+    ts = res.get("timestamp") or []
+    closes = (((res.get("indicators") or {}).get("quote") or [{}])[0].get("close")) or []
+    out = {}
+    for i, t in enumerate(ts):
+        if i < len(closes) and closes[i]:
+            out[datetime.fromtimestamp(t, IST).strftime("%Y-%m-%d")] = float(closes[i])
+    return out, res.get("meta") or {}
+
+
 def main():
     w = load(WATCH, {})
     old = load(OUT, {"prices": {}})
     oldp = old.get("prices", {})
     codes = load(CACHE, {})
-    prices, stale, notes = {}, [], []
+    prices, stale, notes, back = {}, [], [], {}
 
     print("Funds")
     by_isin, by_code, rows = amfi()
@@ -217,6 +248,7 @@ def main():
           if r:
               prices[code] = {"price": float(r["nav"]), "date": r["date"], "name": f["name"],
                               "matched": r["name"], "how": how, "scheme": r["scheme"], "kind": "nav"}
+              back[code] = past_navs(r.get("scheme"))
               print("   %-30s %10s  %s  (%s: %s)" % (f["name"], r["nav"], r["date"], how, r["name"]))
               if how == "matched by name":
                   notes.append("%s matched by name to: %s" % (f["name"], r["name"]))
@@ -249,8 +281,8 @@ def main():
     for s in w.get("stocks", []):
       try:
           code = s["code"]
-          d = get("https://query1.finance.yahoo.com/v8/finance/chart/%s?interval=1d&range=5d" % urllib.parse.quote(code))
-          meta = (((d or {}).get("chart") or {}).get("result") or [{}])[0].get("meta") or {}
+          closes, meta = past_closes(code)
+          back[code] = closes
           px = meta.get("regularMarketPrice")
           if px:
               ts = meta.get("regularMarketTime")
@@ -275,6 +307,9 @@ def main():
     # keep a rolling 120 days of prices, so a SIP confirmed late still uses the
     # right day's NAV rather than today's
     hist = old.get("history", {})
+    for code, past in back.items():
+        if past:
+            hist.setdefault(code, {}).update(past)
     cutoff = (datetime.now(IST) - timedelta(days=120)).strftime("%Y-%m-%d")
     for code, p in prices.items():
         iso = to_iso(p.get("date"))
