@@ -93,7 +93,7 @@ textarea{font-family:ui-monospace,Menlo,monospace;font-size:12.5px}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 /* ---------- reference lists ---------- */
-var CATS=["Stock","Mutual fund","ETF","PPF","EPF","NPS","Gold (physical)","Digital gold","Sovereign gold bond","Fixed deposit","Recurring deposit","Bonds","US stock","China stock","ESOP or RSU","Real estate","Other"];
+var CATS=["Stock","Mutual fund","ETF","PPF","EPF","NPS","Gold (physical)","Digital gold","Sovereign gold bond","Fixed deposit","Recurring deposit","Bonds","US stock","China stock","ESOP or RSU","Cash or savings account","Real estate","Other"];
 var SUBS=["-","Equity: Large cap","Equity: Mid cap","Equity: Small cap","Equity: Large & Mid cap","Equity: Flexi/Multi cap","Equity: ELSS","Equity: Sectoral/Thematic","Equity: Index/ETF","Equity: International","Equity: Other","Hybrid: Equity-oriented","Hybrid: Other","Debt: Liquid","Debt: Short term","Debt: Long term/Gilt","Debt: Other","Gold fund","Vested","Unvested","Other"];
 var MKTS=["India","US","China","Other"],STAT=["Active","Paused","Stopped"],FREQ=["Monthly","Quarterly","Yearly"],FAC={Monthly:1,Quarterly:1/3,Yearly:1/12};
 var INCT=["Salary","Business","Rent received","Interest or dividend","Pension","Other"];
@@ -104,8 +104,8 @@ var KCAT=[["Stock","ETF","US stock","China stock"],["Mutual fund"],["PPF","EPF",
 var isLoan=function(k){return k==KINDS[5]||k==KINDS[6]};
 
 /* ---------- store ---------- */
-function blank(){return{inv:[],inc:[],lia:[],tx:[],sips:[],itr:{}}}
-function load(){try{var r=localStorage.getItem("ledger");if(r){var o=JSON.parse(r);["inv","inc","lia","tx","sips"].forEach(function(k){if(!Array.isArray(o[k]))o[k]=[]});if(!o.itr)o.itr={};return o}}catch(e){}return blank()}
+function blank(){return{inv:[],inc:[],lia:[],tx:[],sips:[],itr:{},plan:{}}}
+function load(){try{var r=localStorage.getItem("ledger");if(r){var o=JSON.parse(r);["inv","inc","lia","tx","sips"].forEach(function(k){if(!Array.isArray(o[k]))o[k]=[]});if(!o.itr)o.itr={};if(!o.plan)o.plan={};return o}}catch(e){}return blank()}
 var D=load(),page="dash",dr=null,err="",ok="",merge=true,filt="All",sub="All",slab=30,fy=(new Date().getMonth()>=3?new Date().getFullYear():new Date().getFullYear()-1);
 function save(){try{localStorage.setItem("ledger",JSON.stringify(D))}catch(e){err="This browser would not save the change. Copy your backup text on the Data tab."}}
 
@@ -127,7 +127,8 @@ function group(r){var c=r.cat,s=r.sub||"-";
  if(c=="Mutual fund"||c=="ETF"){if(/^Equity/.test(s))return["Equity funds",s.slice(8)];if(/^Hybrid/.test(s))return["Hybrid funds",s.slice(8)];if(/^Debt/.test(s))return["Debt funds",s.slice(6)];if(s=="Gold fund")return["Gold","Gold fund"];return["Equity funds","Index/ETF"]}
  if(/[Gg]old/.test(c))return["Gold",c];
  if(/^(PPF|EPF|NPS)$/.test(c))return["Retirement and tax-free",c];
- if(/deposit|Bonds/.test(c))return["Deposits and bonds",c];
+ if(c=="Cash or savings account")return["Cash and deposits","Cash"];
+ if(/deposit|Bonds/.test(c))return["Cash and deposits",c];
  return["Other",c]}
 function totals(){var t={inv:0,val:0,costKnown:0,valKnown:0,owed:0,inM:0,outM:0,emiM:0,sipM:0};
  D.inv.forEach(function(r){t.val+=num(r.value);if(r.invested!==""&&r.invested!=null){t.inv+=num(r.invested);t.valKnown+=num(r.value);t.costKnown+=num(r.invested)}if(r.status=="Active")t.sipM+=num(r.mc)});
@@ -227,6 +228,7 @@ function cash(){var t=totals();
  h+=D.lia.length?rows('<th>Name</th><th>Type</th><th class="n">Amount</th><th>How often</th><th class="n">Still owed</th><th>Ends</th><th>Status</th><th></th>',
   D.lia.map(function(r,i){return'<tr><td>'+esc(r.name)+'</td><td>'+esc(r.type)+'</td><td class="n">'+inr(r.amt)+'</td><td>'+esc(r.freq)+'</td><td class="n">'+(r.out===""?"-":inr(r.out))+'</td><td>'+esc(r.end)+'</td><td><span class="pill">'+esc(r.status)+'</span></td><td><button class="btn link" data-dr="lia" data-i="'+i+'">Edit</button><button class="btn link danger" data-del="lia|'+i+'">Delete</button></td></tr>'}).join(""),"")
   :empty("No loans or bills added yet.","Add an outgoing","dr:lia");
+ h+=planView();
  return h}
 
 function taxPage(){
@@ -635,6 +637,67 @@ function undoSip(i){var x=D.sips[i];if(!x)return;
   r.lastSip=earlier.length?earlier[earlier.length-1]:""});
  D.sips.splice(i,1);ok="Undone.";save();render()}
 
+
+/* ---------- what you can afford ---------- */
+var TRIPS=[
+ {name:"A weekend near home",per:12000,note:"Lonavala, Alibaug or Matheran, two nights"},
+ {name:"Goa",per:30000,note:"Four nights, flights and a mid-range stay"},
+ {name:"Kerala",per:45000,note:"Five nights, backwaters and a hill stay"},
+ {name:"Andaman",per:70000,note:"Six nights, flights and island transfers"},
+ {name:"Thailand or Vietnam",per:85000,note:"Six nights, visa on arrival"},
+ {name:"Dubai",per:110000,note:"Five nights, mid-range hotel"},
+ {name:"Maldives",per:160000,note:"Five nights, a modest resort"},
+ {name:"Japan or Australia",per:250000,note:"Ten nights"},
+ {name:"Switzerland",per:320000,note:"Ten nights, rail pass and mid-range hotels"}];
+function liquid(){var t=0;D.inv.forEach(function(r){var c=r.cat,s=r.sub||"";
+ if(c=="Cash or savings account"||c=="Fixed deposit"||c=="Recurring deposit"||s=="Debt: Liquid")t+=num(r.value)});return t}
+function plan(){var P=D.plan||{},t=totals(),
+ people=Math.max(1,num(P.people)||1),months=Math.max(1,num(P.months)||6),
+ essentials=t.outM,cash=liquid(),
+ floorMonths=P.floor===0?0:(num(P.floor)||6),floorAmt=essentials*floorMonths,
+ cover=essentials>0?cash/essentials:(cash>0?99:0),
+ spare=Math.max(0,cash-floorAmt),
+ saved=Math.max(0,t.surplus)*months,
+ raw=spare*0.5+saved*0.7,blocks=[];
+ if(!t.inM)blocks.push("No income entered yet.");
+ else{
+  if(t.surplus<=0)blocks.push("Nothing is left over each month, so a trip would come out of savings or onto a card.");
+  if(t.emiM/t.inM>0.4)blocks.push("Loan and card payments take "+(t.emiM/t.inM*100).toFixed(0)+"% of your income. Steady that before adding a holiday.");
+  if(essentials>0&&cover<3)blocks.push("Your cash would cover "+cover.toFixed(1)+" months of bills. Build that to three first.");
+ }
+ var budget=blocks.length?0:Math.round(raw),
+  list=(P.trips&&P.trips.length)?P.trips:TRIPS,afford=null,next=null;
+ list.forEach(function(x){var cost=num(x.per)*people;
+  if(cost<=budget){if(!afford||num(x.per)>num(afford.per))afford=x}
+  else if(!next||num(x.per)<num(next.per))next=x});
+ return{t:t,cash:cash,cover:cover,floorAmt:floorAmt,spare:spare,saved:saved,budget:budget,
+  per:budget/people,people:people,months:months,floorMonths:floorMonths,
+  blocks:blocks,afford:afford,next:next,list:list}}
+function planView(){var p=plan();
+ var h='<h2>What you can afford</h2><p class="note">Not a goal tracker. It asks what you could spend on something enjoyable without denting your position, using what is left each month and any cash above an emergency cushion.</p>';
+ h+='<div class="panel" style="padding:12px 16px;display:flex;gap:18px;flex-wrap:wrap;align-items:end">'+
+  '<div><label for="p_people">People travelling</label><input type="number" min="1" step="1" id="p_people" value="'+esc(p.people)+'" style="width:90px"></div>'+
+  '<div><label for="p_months">Months of saving</label><input type="number" min="1" step="1" id="p_months" value="'+esc(p.months)+'" style="width:90px"></div>'+
+  '<div><label for="p_floor">Cushion, in months of bills</label><input type="number" min="0" step="1" id="p_floor" value="'+esc(p.floorMonths)+'" style="width:110px"></div></div>';
+ if(p.blocks.length)return h+'<div class="flag"><b>Nothing comfortable yet.</b><br>'+p.blocks.map(esc).join("<br>")+'</div>'+
+  '<p class="note">Fill in your income and bills above, and add your savings account or liquid fund as a holding so the cushion can be counted.</p>';
+ h+=strip([["Comfortable budget",inr(p.budget),"up",p.people>1?inr(p.per)+" each":""],
+  ["From "+p.months+" months of saving",inr(p.saved*0.7)],
+  ["From cash above the cushion",inr(p.spare*0.5)],
+  ["Cushion kept back",inr(p.floorAmt),"",p.cover>90?"no bills entered":p.cover.toFixed(1)+" months covered"]]);
+ if(p.afford)h+='<div class="panel" style="padding:16px;margin-top:10px"><div style="font:500 20px var(--serif)">'+esc(p.afford.name)+'</div><p class="note" style="margin:4px 0 0">'+esc(p.afford.note||"")+' · about '+inr(num(p.afford.per)*p.people)+' for '+p.people+(p.people>1?" people":" person")+'</p></div>';
+ else h+='<div class="flag">A budget of '+inr(p.budget)+' is below the cheapest trip on the list. Save for longer, or lower a cost below.</div>';
+ if(p.next){var gap=num(p.next.per)*p.people-p.budget,perMonth=Math.ceil(gap/(0.7*p.months)/100)*100;
+  h+='<p class="note">The next rung is '+esc(p.next.name)+' at about '+inr(num(p.next.per)*p.people)+'. That needs '+inr(gap)+' more, which is roughly '+inr(perMonth)+' a month more for '+p.months+' months, or a few months longer at your present rate.</p>'}
+ h+='<h3 style="font:500 15px var(--serif);margin:20px 0 6px">The ladder</h3>';
+ h+=rows('<th>Where</th><th class="n">Cost each</th><th class="n">For '+p.people+'</th><th>Within budget</th><th></th>',
+  p.list.map(function(x,i){var cost=num(x.per)*p.people;
+   return'<tr><td>'+esc(x.name)+'<br><span class="note">'+esc(x.note||"")+'</span></td><td class="n"><input type="number" step="any" id="tp'+i+'" value="'+esc(x.per)+'" style="width:110px"></td><td class="n">'+inr(cost)+'</td><td>'+(cost<=p.budget?'<span class="up">yes</span>':'<span class="note">'+inr(cost-p.budget)+' short</span>')+'</td><td><button class="btn link danger" data-trip="'+i+'">Remove</button></td></tr>'}).join(""),
+  "Costs are rough estimates for a trip from Mumbai. Edit any of them, or remove what does not interest you.");
+ h+='<div class="acts"><button class="btn ghost" data-addtrip="1">Add a destination</button><button class="btn ghost" data-resettrip="1">Reset the list</button></div>';
+ h+='<p class="note">How it is worked out: seven tenths of what you would save in '+p.months+' months, plus half of any cash above '+p.floorMonths+' months of bills. The fractions are deliberate slack, so a holiday never takes everything spare.</p>';
+ return h}
+
 /* ---------- check-up ---------- */
 function ageDays(d){if(!d)return null;var m=String(d).match(/(\d{2})-(\d{2}|[A-Za-z]{3})-(\d{4})/);if(!m)return null;
  var mo={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11}[String(m[2]).toLowerCase().slice(0,3)];
@@ -711,6 +774,9 @@ document.addEventListener("click",function(ev){var t=ev.target,g=function(a){ret
  if(g("data-dr")){dr={k:g("data-dr"),i:g("data-i")==null?-1:+g("data-i")};err="";ok="";render();return}
  if(g("data-close")||t.className=="drawer"){dr=null;err="";render();return}
  if(g("data-save")){saveForm();return}
+ if(g("data-trip")){var L=(D.plan.trips||TRIPS).slice();L.splice(+g("data-trip"),1);D.plan.trips=L;save();render();return}
+ if(g("data-addtrip")){var L2=(D.plan.trips||TRIPS).slice();L2.push({name:"New destination",per:50000,note:""});D.plan.trips=L2;save();render();return}
+ if(g("data-resettrip")){delete D.plan.trips;save();render();return}
  if(g("data-sip")){confirmSip(+g("data-sip"),false);return}
  if(g("data-skip")){confirmSip(+g("data-skip"),true);return}
  if(g("data-unsip")){undoSip(+g("data-unsip"));return}
@@ -722,7 +788,7 @@ document.addEventListener("click",function(ev){var t=ev.target,g=function(a){ret
  if(g("data-fill")){var m={sal:0,hp:0,int:0};
   D.inc.forEach(function(r){var y=num(r.amt)*FAC[r.freq]*12;if(r.type=="Salary")m.sal+=y;else if(r.type=="Rent received")m.hp+=y;else if(r.type=="Interest or dividend")m.int+=y});
   D.itr.sal=Math.round(m.sal);D.itr.hp=Math.round(m.hp);D.itr.int=Math.round(m.int);save();ok="Income copied in. Check and adjust the figures.";render();return}
- if(g("data-restore")){try{var o=JSON.parse(val("bk"));["inv","inc","lia"].forEach(function(k){if(!Array.isArray(o[k]))throw 0});["tx","sips"].forEach(function(k){if(!Array.isArray(o[k]))o[k]=[]});if(!o.itr)o.itr={};D=o;save();ok="Restored.";err=""}catch(e){err="That text is not a valid backup."}render();return}
+ if(g("data-restore")){try{var o=JSON.parse(val("bk"));["inv","inc","lia"].forEach(function(k){if(!Array.isArray(o[k]))throw 0});["tx","sips"].forEach(function(k){if(!Array.isArray(o[k]))o[k]=[]});if(!o.itr)o.itr={};if(!o.plan)o.plan={};D=o;save();ok="Restored.";err=""}catch(e){err="That text is not a valid backup."}render();return}
  if(g("data-wipe")){D=blank();save();ok="Everything erased.";render();return}});
 document.addEventListener("keydown",function(e){if(e.key=="Escape"&&dr){dr=null;render()}
  if(e.key=="Enter"&&e.target.className==""&&e.target.getAttribute&&e.target.getAttribute("data-go")){page=e.target.getAttribute("data-go");render()}});
@@ -737,6 +803,9 @@ document.addEventListener("change",function(e){var t=e.target;
  if(t.id=="t_apply"&&dr){dr.apply=t.value;return}
  if(/^sd[0-9]+$/.test(t.id)){var dd=dueSips(),xx=dd[+t.id.slice(2)];if(xx){sipDate[xx.r.name+"|"+xx.iso]=t.value;render()}return}
  if(/^i_/.test(t.id)){D.itr[t.id.slice(2)]=t.value===""?"":num(t.value);save();return}
+ if(/^p_/.test(t.id)){D.plan[t.id.slice(2)]=num(t.value);save();render();return}
+ if(/^tp[0-9]+$/.test(t.id)){var L3=(D.plan.trips||TRIPS).map(function(x){return{name:x.name,per:x.per,note:x.note}});
+  L3[+t.id.slice(2)].per=num(t.value);D.plan.trips=L3;save();render();return}
  if(t.id=="casf"&&t.files[0]){casFile=t.files[0];casName=casFile.name;cas=null;err="";render();return}
  if(t.id=="shf"&&t.files[0]){readSheet(t.files[0]);return}});
 render();
