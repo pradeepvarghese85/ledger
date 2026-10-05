@@ -1,0 +1,31 @@
+name: Update prices
+
+on:
+  schedule:
+    # 18:30 UTC = midnight IST, after AMFI publishes the day's NAVs
+    - cron: "30 18 * * 1-5"
+  workflow_dispatch:        # lets you press "Run workflow" yourself
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Fetch prices
+        run: python update.py
+
+      - name: Save the new prices
+        run: |
+          git config user.name "price bot"
+          git config user.email "actions@github.com"
+          git add data/prices.json data/fund-codes.json
+          git diff --staged --quiet || git commit -m "Prices $(date -u +'%Y-%m-%d')"
+          git push
