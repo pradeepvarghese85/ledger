@@ -1,7 +1,7 @@
 {
  "count": 37,
  "notes": [
-  "Could not find a scheme for Kotak Midcap. Edit its 'search' text in watchlist.json."
+  "AMFI's NAV file could not be downloaded on this run."
  ],
  "prices": {
   "ASHOKA.NS": {
@@ -265,7 +265,20 @@
   }
  },
  "stale": [
-  "Kotak Midcap"
+  "Mirae Large & Midcap",
+  "Parag Parikh Flexi Cap",
+  "SBI Small Cap",
+  "Kotak Mid Cap",
+  "ICICI Pru Large Cap",
+  "HDFC Balanced Advantage",
+  "DSP ELSS Tax Saver",
+  "Mirae ELSS Tax Saver",
+  "Tata ELSS Tax Saving",
+  "Nippon India US Equity Opp",
+  "Axis ELSS Tax Saver",
+  "Axis Large Cap",
+  "Canara Robeco ELSS",
+  "Sundaram Services"
  ],
- "updated": "05-10-2026 19:08 IST"
+ "updated": "05-10-2026 19:38 IST"
 }
