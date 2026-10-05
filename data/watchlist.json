@@ -1,13 +1,13 @@
 {
-  "_comment": "Each line is one thing to price. 'code' is what the page matches on, so it must also appear on the holding inside the dashboard. Stocks use the Yahoo symbol (.NS for NSE, .BO for BSE, nothing for US). Funds are looked up in AMFI's daily file by 'isin', which is exact; the ISIN is printed on your CAS. Without an ISIN the script falls back to matching 'search' against scheme names, which can pick the wrong fund. You can also pin a scheme with \"scheme\": 123456.",
+  "_comment": "Each line is one thing to price. 'code' is what the page matches on, so it must also appear on the holding inside the dashboard. Stocks use the Yahoo symbol (.NS for NSE, .BO for BSE, nothing for US). Funds are looked up in AMFI's daily file by 'isin', which is exact; the ISIN is printed on your CAS. Without an ISIN the script falls back to matching 'search' against scheme names, which can pick the wrong fund. You can also pin a scheme with \"scheme\": 123456. A US holding uses its plain ticker (QQQM, AAPL); its price comes back in dollars and the dashboard converts it using the USD to INR rate, which is fetched on every run.",
   "stocks": [
-    {
-      "code": "ASHOKA.NS",
-      "name": "Ashoka Buildcon"
-    },
     {
       "code": "AWHCL.NS",
       "name": "Antony Waste"
+    },
+    {
+      "code": "ASHOKA.NS",
+      "name": "Ashoka Buildcon"
     },
     {
       "code": "CASTROLIND.NS",
@@ -28,6 +28,11 @@
     {
       "code": "IRFC.NS",
       "name": "IRFC"
+    },
+    {
+      "code": "QQQM",
+      "name": "Invesco NASDAQ 100 ETF",
+      "currency": "USD"
     },
     {
       "code": "MANALIPETC.NS",
@@ -54,20 +59,20 @@
       "name": "Punjab National Bank"
     },
     {
-      "code": "RENUKA.NS",
-      "name": "Shree Renuka Sugars"
-    },
-    {
       "code": "RVNL.NS",
       "name": "RVNL"
     },
     {
-      "code": "SBIN.NS",
-      "name": "State Bank of India"
-    },
-    {
       "code": "STLNETWORK.NS",
       "name": "STL Networks"
+    },
+    {
+      "code": "RENUKA.NS",
+      "name": "Shree Renuka Sugars"
+    },
+    {
+      "code": "SBIN.NS",
+      "name": "State Bank of India"
     },
     {
       "code": "STLTECH.NS",
@@ -78,16 +83,16 @@
       "name": "Suzlon Energy"
     },
     {
-      "code": "TATASTEEL.NS",
-      "name": "Tata Steel"
-    },
-    {
       "code": "TMCV.NS",
       "name": "Tata Motors (Commercial)"
     },
     {
       "code": "TMPV.NS",
       "name": "Tata Motors Passenger Vehicles"
+    },
+    {
+      "code": "TATASTEEL.NS",
+      "name": "Tata Steel"
     },
     {
       "code": "YESBANK.NS",
