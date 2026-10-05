@@ -1,20 +1,7 @@
 {
- "count": 36,
+ "count": 37,
  "notes": [
-  "Matched Mirae Large & Midcap to: Mirae Asset Large & Midcap Fund - Direct Plan - Growth",
-  "Matched Parag Parikh Flexi Cap to: Parag Parikh Flexi Cap Fund - Direct Plan - Growth",
-  "Matched SBI Small Cap to: SBI SMALL CAP FUND - Direct Plan - Growth",
-  "Could not find a scheme for Kotak Midcap. Edit its 'search' text in watchlist.json.",
-  "Matched ICICI Pru Large Cap to: ICICI Prudential Large Cap Fund (erstwhile Bluechip Fund) - Direct Plan - Growth",
-  "Matched HDFC Balanced Advantage to: HDFC Balanced Advantage Fund - Direct Plan - Growth Option",
-  "Matched DSP ELSS Tax Saver to: DSP ELSS Tax Saver Fund - Direct Plan - Growth",
-  "Matched Mirae ELSS Tax Saver to: Mirae Asset ELSS Tax Saver Fund - Direct Plan - Growth",
-  "Matched Tata ELSS Tax Saving to: Tata ELSS - Tax Saver Fund - Direct Plan - Growth Option",
-  "Matched Nippon India US Equity Opp to: Nippon India US Equity Opportunities Fund - Direct Plan - Growth Option",
-  "Matched Axis ELSS Tax Saver to: Axis ELSS- Tax Saver Fund - Direct Plan - Growth Option",
-  "Matched Axis Large Cap to: Axis Large & Mid Cap Fund - Direct Plan - Growth Option",
-  "Matched Canara Robeco ELSS to: Canara Robeco ELSS - Tax Saver Fund - Direct Plan - GROWTH OPTION",
-  "Matched Sundaram Services to: Sundaram Services Fund - Direct Plan - GROWTH"
+  "Matched Kotak Midcap to: Kotak Nifty Midcap 50 Index Fund - Direct Plan - GROWTH"
  ],
  "prices": {
   "ASHOKA.NS": {
@@ -114,6 +101,13 @@
    "matched": "ICICI Prudential Large Cap Fund (erstwhile Bluechip Fund) - Direct Plan - Growth",
    "name": "ICICI Pru Large Cap",
    "price": 112.29
+  },
+  "MF:KOTAK-MIDCAP": {
+   "date": "01-10-2026",
+   "kind": "nav",
+   "matched": "Kotak Nifty Midcap 50 Index Fund - Direct Plan - GROWTH",
+   "name": "Kotak Midcap",
+   "price": 10.361
   },
   "MF:MIRAE-ELSS": {
    "date": "01-10-2026",
@@ -270,8 +264,6 @@
    "price": 21.06
   }
  },
- "stale": [
-  "Kotak Midcap"
- ],
- "updated": "05-10-2026 17:27 IST"
+ "stale": [],
+ "updated": "05-10-2026 18:18 IST"
 }
