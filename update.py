@@ -4,7 +4,7 @@ Fetches a price for everything in data/watchlist.json and writes data/prices.jso
 Runs on a schedule in GitHub Actions. Uses only the Python standard library.
 
 Sources
-  Mutual funds : mfapi.in  (AMFI NAV data, free, no key)
+  Mutual funds : AMFI's own daily NAV file, matched by ISIN (exact, no guessing)
   Stocks       : Yahoo Finance chart endpoint (free, unofficial, may change)
 
 Nothing here can fail the run: anything that cannot be fetched keeps its previous
@@ -18,17 +18,17 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, "data")
 WATCH = os.path.join(DATA, "watchlist.json")
 OUT = os.path.join(DATA, "prices.json")
-CACHE = os.path.join(DATA, "fund-codes.json")
 UA = "Mozilla/5.0 (compatible; personal-portfolio-tracker/1.0)"
 IST = timezone(timedelta(hours=5, minutes=30))
 
 
-def get(url, tries=3):
+def get(url, tries=3, as_json=True):
     for n in range(tries):
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "application/json"})
-            with urllib.request.urlopen(req, timeout=25) as r:
-                return json.loads(r.read().decode("utf-8", "replace"))
+            req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "*/*"})
+            with urllib.request.urlopen(req, timeout=60) as r:
+                body = r.read().decode("utf-8", "replace")
+            return json.loads(body) if as_json else body
         except Exception as e:
             if n == tries - 1:
                 print("   failed:", type(e).__name__, str(e)[:120])
@@ -54,23 +54,17 @@ def words(s):
 
 
 def flat(s):
-    return "".join(c for c in s.lower() if c.isalnum())   # so "mid cap" == "midcap"
+    return "".join(c for c in s.lower() if c.isalnum())      # so "mid cap" == "midcap"
 
 
 def score(name, want):
-    """How well a scheme name matches what was asked for.
-
-    Every word asked for must appear, and every extra word in the scheme name
-    counts against it. That is what stops 'Kotak Nifty Midcap 50 Index Fund'
-    from beating 'Kotak Mid Cap Fund'.
-    """
-    n, nf = name.lower(), flat(name)
-    asked, found = words(want), words(name)
-    af = flat(want)
+    """Every word asked for must appear; every extra word counts against it.
+    That is what stops 'Kotak Nifty Midcap 50 Index Fund' beating 'Kotak Mid Cap Fund'."""
+    n, nf, af = name.lower(), flat(name), flat(want)
     s = 0
-    for t in asked:
+    for t in words(want):
         s += 3 if t in nf else -6
-    for t in found:
+    for t in words(name):
         if t not in af:
             s -= 6
     if "direct" in n:
@@ -85,65 +79,88 @@ def score(name, want):
     return s
 
 
-def find_scheme(search):
-    res = get("https://api.mfapi.in/mf/search?q=" + urllib.parse.quote(search))
-    if not isinstance(res, list):
-        return None, None
-    res = [r for r in res if isinstance(r, dict) and r.get("schemeName")]
-    if not res:
-        return None, None
-    ranked = sorted(res, key=lambda r: score(r["schemeName"], search), reverse=True)
-    best = ranked[0]
-    if score(best["schemeName"], search) < 6:
-        return None, None
+def amfi():
+    """AMFI's daily file: every scheme, its ISIN, its NAV. Returns (by ISIN, by code, all rows).
+
+    Each line is: code ; ISIN growth ; ISIN reinvest ; name ; NAV ; date
+    """
+    txt = get("https://www.amfiindia.com/spages/NAVAll.txt", as_json=False)
+    by_isin, by_code, rows = {}, {}, []
+    if not txt:
+        return by_isin, by_code, rows
+    for line in txt.splitlines():
+        parts = [p.strip() for p in line.split(";")]
+        if len(parts) < 6 or not parts[0].isdigit():
+            continue
+        row = {"scheme": parts[0], "name": parts[3], "nav": parts[4], "date": parts[5]}
+        try:
+            float(row["nav"])
+        except ValueError:
+            continue
+        rows.append(row)
+        by_code[parts[0]] = row
+        for isin in (parts[1], parts[2]):
+            if isin and isin != "-":
+                by_isin[isin.upper()] = row
+    print("AMFI file: %d schemes" % len(rows))
+    return by_isin, by_code, rows
+
+
+def pick(f, by_isin, by_code, rows):
+    """Finds one fund's row. ISIN first, then a pinned code, then the name."""
+    if f.get("isin"):
+        r = by_isin.get(f["isin"].upper())
+        if r:
+            return r, "matched by ISIN"
+        print("   ISIN %s is not in the AMFI file" % f["isin"])
+    if f.get("scheme"):
+        r = by_code.get(str(f["scheme"]))
+        if r:
+            return r, "pinned scheme code"
+        print("   scheme code %s is not in the AMFI file" % f["scheme"])
+    want = f.get("search") or f.get("name") or ""
+    if not want or not rows:
+        return None, ""
+    ranked = sorted(rows, key=lambda r: score(r["name"], want), reverse=True)
+    if score(ranked[0]["name"], want) < 6:
+        return None, ""
     for r in ranked[1:3]:
-        print("      runner-up: %s" % r["schemeName"])
-    return best.get("schemeCode"), best.get("schemeName")
+        print("      runner-up: %s" % r["name"])
+    return ranked[0], "matched by name"
 
 
 def main():
     w = load(WATCH, {})
     old = load(OUT, {"prices": {}})
     oldp = old.get("prices", {})
-    codes = load(CACHE, {})
     prices, stale, notes = {}, [], []
 
     print("Funds")
+    by_isin, by_code, rows = amfi()
+    if not rows:
+        print("   AMFI's file could not be downloaded. Every fund keeps its previous NAV.")
+        notes.append("AMFI's NAV file could not be downloaded on this run.")
     for f in w.get("funds", []):
       try:
-          code, sch = f["code"], codes.get(f["code"])
-          if f.get("scheme"):                    # pinned by hand in watchlist.json
-              sch = {"scheme": f["scheme"], "matched": "pinned in watchlist"}
-          if not sch:
-              sc, name = find_scheme(f["search"])
-              if sc:
-                  sch = {"scheme": sc, "matched": name}
-                  codes[code] = sch
-                  notes.append("Matched %s to: %s" % (f["name"], name))
-                  print("   matched %s -> %s (%s)" % (f["name"], name, sc))
-              else:
-                  print("   NO MATCH for", f["name"])
-                  notes.append("Could not find a scheme for %s. Edit its 'search' text in watchlist.json." % f["name"])
-          if sch:
-              d = get("https://api.mfapi.in/mf/%s/latest" % sch["scheme"])
-              row = (d or {}).get("data") or []
-              if row:
-                  prices[code] = {
-                      "price": float(row[0]["nav"]),
-                      "date": row[0]["date"],
-                      "name": f["name"],
-                      "matched": sch.get("matched", ""),
-                      "kind": "nav",
-                  }
-                  print("   %-34s %10s  %s" % (f["name"], row[0]["nav"], row[0]["date"]))
-                  continue
+          code = f["code"]
+          r, how = pick(f, by_isin, by_code, rows) if rows else (None, "")
+          if r:
+              prices[code] = {"price": float(r["nav"]), "date": r["date"], "name": f["name"],
+                              "matched": r["name"], "how": how, "scheme": r["scheme"], "kind": "nav"}
+              print("   %-30s %10s  %s  (%s: %s)" % (f["name"], r["nav"], r["date"], how, r["name"]))
+              if how == "matched by name":
+                  notes.append("%s matched by name to: %s" % (f["name"], r["name"]))
+              continue
+          if rows:
+              print("   NO MATCH for", f["name"])
+              notes.append("Could not find %s. Add its ISIN to watchlist.json." % f["name"])
           if code in oldp:
               prices[code] = oldp[code]
           stale.append(f["name"])
       except Exception:
-        print("   error on", f.get("name", "?"))
-        traceback.print_exc()
-        stale.append(f.get("name", "?"))
+          print("   error on", f.get("name", "?"))
+          traceback.print_exc()
+          stale.append(f.get("name", "?"))
 
     print("Stocks")
     for s in w.get("stocks", []):
@@ -182,8 +199,6 @@ def main():
     os.makedirs(DATA, exist_ok=True)
     with open(OUT, "w") as f:
         json.dump(out, f, indent=1, sort_keys=True)
-    with open(CACHE, "w") as f:
-        json.dump(codes, f, indent=1, sort_keys=True)
     print("\nWrote %d prices. %d could not be fetched." % (len(prices), len(stale)))
     if not prices:
         print("\nNOTHING was fetched. Both sources failed, or watchlist.json did not load.")
