@@ -140,6 +140,26 @@ A missing holiday only means a SIP date shows a day early. Nothing breaks.
 3. Run the job.
 4. Check the Data page of the dashboard. Every fund should say **matched by ISIN**.
 
+### My monthly SIP went through
+
+On the **SIP calendar** page, under **Instalments to confirm**. Each row shows the date, the amount and the price for that day, and works out the units. Change the date if your statement shows a different one, check the amount, then press **Confirm**. If an instalment bounced, press **Not taken**.
+
+Nothing is added to your holdings until you press Confirm. The price box stays empty when the NAV for that day is not published yet, so either wait for the next run or type the figure from your statement.
+
+### I want to bring in a CAMS or KFintech statement
+
+**Data** page, the first section, **Detailed CAS, with every transaction**. Ask CAMS or KFintech for the *detailed* statement, not the monthly summary, and choose your own period.
+
+What it does: units, cost and value are **replaced** by the statement's figures, redemptions are recorded **for tax only** so nothing is subtracted twice, and funds you have exited are marked rather than deleted. Purchases are never added again, because the closing balance already includes them. Your shares, PPF, EPF, gold, income and bills are untouched.
+
+Before pressing the button: copy your backup, check the **In your list** column, and fix the name of anything that says *new* but is really something you already hold, or you will end up with two rows.
+
+### A sale covers many SIP instalments and I cannot give one purchase date
+
+In the sale, set **Tax treatment** to Short term or Long term instead of leaving it to work the dates out. Get the split from your **capital gains statement**, which CAMS and KFintech send for each financial year and which already applies first-in-first-out and the pre-2018 grandfathering. If a sale is part long term and part short, record it as two sales.
+
+The **Tax** page has a year dropdown, so a redemption from last financial year goes under that year, not this one.
+
 ### My SIP amount changed, or I paused one
 
 In the dashboard, not here. Portfolio, untick Combine, Edit the holding, then change the monthly amount, the day or the status.
@@ -168,6 +188,8 @@ Look at the Check-up page first; it names what has no price. The usual causes:
 | news | News only |
 | prices | Prices and NAVs only |
 | screen | Rebuilds the Find ideas measures |
+
+The screen is rebuilt once a day at 03:00. News updates four times a day. Prices and NAVs update at 03:00 and again at 16:15, after the Indian close.
 
 It runs by itself on weekdays: **03:00** everything, **09:15** and **12:30** news, **16:15** prices and news, Indian time.
 
@@ -201,7 +223,8 @@ Do this after any large change, and every few months otherwise.
 
 - **Fund NAVs:** AMFI's daily file, matched by ISIN, with mfapi.in as a second route. Free.
 - **Share prices:** Yahoo Finance. Free and unofficial, so it can change without notice.
-- **News:** Google News. Free.
+- **News:** Google News, searching the industries in `data/themes.json`. Free.
+- **The Find ideas screen:** a year of daily prices for the names in `data/universe.json`, from Yahoo.
 - **Exchange rates:** Yahoo, fetched every run, so US holdings convert to rupees.
 
 Nothing here is live. NAVs are published once a day, and share prices are the last close.
