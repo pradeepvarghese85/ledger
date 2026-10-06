@@ -53,7 +53,13 @@ th,td{padding:10px 16px;text-align:left;border-bottom:1px solid var(--rule);whit
 th{font-size:12.5px;font-weight:500;color:var(--soft)}
 tr:last-child td{border-bottom:0}
 td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
-.tw{overflow-x:auto;border-radius:10px}
+.tw{overflow:auto;border-radius:10px;max-height:min(72vh,760px)}
+thead th{position:sticky;top:0;z-index:3;background:var(--surface);box-shadow:inset 0 -1px 0 var(--rule)}
+tbody tr:hover td{background:color-mix(in srgb,var(--deep) 5%,transparent)}
+.tw table{border-collapse:separate;border-spacing:0}
+th,td{border-bottom:1px solid var(--rule)}
+.stick th:first-child,.stick td:first-child{position:sticky;left:0;z-index:2;background:var(--surface)}
+.stick thead th:first-child{z-index:4}
 .btn{font:500 14px var(--sans);border:1px solid var(--deep);background:var(--deep);color:var(--paper);padding:8px 15px;border-radius:7px;cursor:pointer}
 .btn.ghost{background:none;color:var(--deep);border-color:var(--rule)}
 .btn.link{background:none;border:0;color:var(--deep);padding:4px 6px;font-size:13.5px}
@@ -68,6 +74,19 @@ input,select,textarea{width:100%;font:15px var(--sans);color:var(--ink);backgrou
 textarea{font-family:ui-monospace,Menlo,monospace;font-size:12.5px}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:0 12px}
 .acts{display:flex;gap:8px;margin-top:22px}
+.card{background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:13px 15px;margin:8px 0;box-shadow:var(--sh)}
+.card-top{display:flex;justify-content:space-between;gap:12px;align-items:baseline}
+.card-name{font:500 16px var(--serif);line-height:1.3}
+.card-right{text-align:right;white-space:nowrap}
+.card-right b{font:500 18px var(--serif)}
+.card-facts{display:flex;flex-wrap:wrap;gap:4px 18px;margin-top:9px;font-size:13.5px;font-variant-numeric:tabular-nums}
+.card-facts i{font-style:normal;color:var(--soft);margin-right:3px}
+.card-acts{margin-top:6px;display:flex;gap:4px}
+.viewbar{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin:12px 0}
+.seg{display:inline-flex;border:1px solid var(--rule);border-radius:8px;overflow:hidden;background:var(--surface)}
+.seg button{background:none;border:0;padding:6px 13px;font:14px var(--sans);color:var(--soft);cursor:pointer}
+.seg button.on{background:var(--deep);color:var(--paper);font-weight:500}
+.viewbar select{width:auto}
 .flag{border-left:3px solid var(--amber);background:var(--surface);border-radius:0 8px 8px 0;padding:11px 15px;margin:9px 0;font-size:14px}
 .err{color:var(--down);font-size:13.5px;margin-top:10px}
 .ok{color:var(--up);font-size:13.5px;margin-top:10px}
@@ -108,7 +127,7 @@ var isLoan=function(k){return k==KINDS[5]||k==KINDS[6]};
 /* ---------- store ---------- */
 function blank(){return{inv:[],inc:[],lia:[],tx:[],sips:[],itr:{},plan:{}}}
 function load(){try{var r=localStorage.getItem("ledger");if(r){var o=JSON.parse(r);["inv","inc","lia","tx","sips"].forEach(function(k){if(!Array.isArray(o[k]))o[k]=[]});if(!o.itr)o.itr={};if(!o.plan)o.plan={};return o}}catch(e){}return blank()}
-var D=load(),page="dash",dr=null,err="",ok="",merge=true,filt="All",sub="All",slab=30,fy=(new Date().getMonth()>=3?new Date().getFullYear():new Date().getFullYear()-1);
+var D=load(),page="dash",dr=null,err="",ok="",merge=true,pview="cards",psort="value",filt="All",sub="All",slab=30,fy=(new Date().getMonth()>=3?new Date().getFullYear():new Date().getFullYear()-1);
 function save(){try{localStorage.setItem("ledger",JSON.stringify(D))}catch(e){err="This browser would not save the change. Copy your backup text on the Data tab."}}
 
 /* ---------- helpers ---------- */
@@ -162,7 +181,7 @@ function taxCalc(rows){var g={S1:0,S2:0,L1:0,L2:0},sale={S1:0,S2:0,L1:0,L2:0},co
 /* ---------- small renderers ---------- */
 function empty(msg,btn,act){return'<div class="panel empty"><p>'+msg+'</p>'+(btn?'<button class="btn" data-go="'+act+'">'+btn+'</button>':"")+'</div>'}
 function strip(items){return'<div class="strip">'+items.map(function(i){return'<div><span>'+i[0]+'</span><b class="'+(i[2]||"")+'">'+i[1]+'</b>'+(i[3]?'<span>'+i[3]+'</span>':"")+'</div>'}).join("")+'</div>'}
-function rows(head,body,note){return'<div class="panel tw"><table><tr>'+head+'</tr>'+body+'</table></div>'+(note?'<p class="note">'+note+'</p>':"")}
+function rows(head,body,note){return'<div class="panel tw"><table class="stick"><thead><tr>'+head+'</tr></thead><tbody>'+body+'</tbody></table></div>'+(note?'<p class="note">'+note+'</p>':"")}
 
 /* ---------- pages ---------- */
 function dash(){var t=totals();
@@ -186,6 +205,13 @@ function dash(){var t=totals();
  if(!D.inc.length)h+='<div class="flag">Add your income and bills to see what you can spare each month. <button class="btn link" data-go="cash">Go to Income and bills</button></div>';
  return h}
 
+function holdCard(o){
+ // o: {name, meta, right, sub, lines[], i}
+ return'<div class="card"><div class="card-top"><div><div class="card-name">'+o.name+'</div><div class="note">'+o.meta+'</div></div>'+
+  '<div class="card-right">'+o.right+(o.sub?'<div class="note">'+o.sub+'</div>':"")+'</div></div>'+
+  (o.lines&&o.lines.length?'<div class="card-facts">'+o.lines.map(function(l){return'<span><i>'+l[0]+'</i> '+l[1]+'</span>'}).join("")+'</div>':"")+
+  (o.i==null?"":'<div class="card-acts"><button class="btn link" data-dr="inv" data-i="'+o.i+'">Edit</button><button class="btn link danger" data-del="inv|'+o.i+'">Delete</button></div>')+
+  '</div>'}
 function portfolio(){
  var h='<div class="head"><h1>Portfolio</h1><button class="btn" data-dr="inv">Add a holding</button></div><p class="lede">Shares, funds, gold, deposits and retirement savings.</p>';
  if(!D.inv.length)return h+empty("No holdings yet. Import a statement on the Data tab, or add one by hand.","Import a file","data");
@@ -201,16 +227,38 @@ function portfolio(){
  h+='<div class="panel" style="padding:12px 16px;display:flex;gap:18px;flex-wrap:wrap;align-items:end"><div><label for="filt">Asset class</label><select id="filt"><option>All</option>'+groups.map(function(g){return'<option'+(g==filt?" selected":"")+'>'+esc(g)+'</option>'}).join("")+'</select></div>'+
   (filt!="All"&&subs.length>1?'<div><label for="sub">Within it</label><select id="sub"><option>All</option>'+subs.map(function(x){return'<option'+(x==sub?" selected":"")+'>'+esc(x)+'</option>'}).join("")+'</select></div>':"")+
   '<div><label>Showing</label><b style="font:500 17px var(--serif)">'+shown.length+' of '+D.inv.length+' · '+inr(shownV)+(allV&&filt!="All"?' · '+(shownV/allV*100).toFixed(1)+'% of everything':"")+'</b></div></div>';
- h+='<label class="sw"><input type="checkbox" id="merge"'+(merge?" checked":"")+'> Combine the same holding across brokers and folios</label>';
+ h+='<div class="viewbar"><label class="sw" style="margin:0"><input type="checkbox" id="merge"'+(merge?" checked":"")+'> Combine the same holding across brokers and folios</label>'+
+  '<span class="seg"><button class="'+(pview=="cards"?"on":"")+'" data-pv="cards">Cards</button><button class="'+(pview=="table"?"on":"")+'" data-pv="table">Table</button></span>'+
+  '<select id="psort"><option value="value"'+(psort=="value"?" selected":"")+'>Biggest first</option><option value="name"'+(psort=="name"?" selected":"")+'>By name</option><option value="gain"'+(psort=="gain"?" selected":"")+'>Best gain first</option></select></div>';
  if(merge){var M={},o=[];shown.forEach(function(r){var k=r.cat+"|"+(r.name||"").toLowerCase().replace(/\b(limited|ltd)\b/g,"").replace(/[^a-z0-9]/g,"");
    if(!M[k]){M[k]={r:r,pl:[],q:0,i:0,v:0,part:false};o.push(M[k])}var m=M[k];if(r.plat&&m.pl.indexOf(r.plat)<0)m.pl.push(r.plat);
    m.q+=num(r.qty);m.v+=num(r.value);if(r.invested===""||r.invested==null)m.part=true;else m.i+=num(r.invested)});
   var tv=o.reduce(function(a,m){return a+m.v},0);
+  o.sort(function(a,b){if(psort=="name")return a.r.name<b.r.name?-1:1;
+   if(psort=="gain"){var ga=a.i?a.v/a.i-1:-9,gb=b.i?b.v/b.i-1:-9;return gb-ga}
+   return b.v-a.v});
+  if(pview=="cards")return h+o.map(function(m){var g=m.i?(m.v/m.i-1)*100:null;
+   return holdCard({name:esc(m.r.name),meta:esc(m.r.cat)+(m.r.sub&&m.r.sub!="-"?" · "+esc(m.r.sub):"")+" · "+esc(m.pl.join(" + ")),
+    right:'<b>'+inr(m.v)+'</b>',sub:(tv?(m.v/tv*100).toFixed(1)+'% of all':""),
+    lines:[["units",m.q?String(Math.round(m.q*1e4)/1e4):"-"],["put in",m.i?inr(m.i)+(m.part?" *":""):"-"],
+      ["gain",g===null?"-":'<span class="'+(g>=0?"up":"down")+'">'+(g>0?"+":"")+g.toFixed(1)+'%</span>']]})}).join("")+
+   '<p class="note">Rows with the same name and type are added together. A star means the cost was missing for part of it. Untick the box above to edit single entries.</p>';
   h+=rows('<th>Holding</th><th>Type</th><th>Fund type</th><th>Held in</th><th class="n">Units</th><th class="n">Put in</th><th class="n">Value</th><th class="n">Share</th>',
    o.sort(function(a,b){return b.v-a.v}).map(function(m){return'<tr><td>'+esc(m.r.name)+'</td><td>'+esc(m.r.cat)+'</td><td>'+esc(m.r.sub=="-"?"":m.r.sub)+'</td><td>'+esc(m.pl.join(" + "))+'</td><td class="n">'+(m.q?Math.round(m.q*1e4)/1e4:"-")+'</td><td class="n">'+(m.i?inr(m.i)+(m.part?" *":""):"-")+'</td><td class="n">'+inr(m.v)+'</td><td class="n">'+(tv?(m.v/tv*100).toFixed(1):"0")+'%</td></tr>'}).join(""),
    'Rows with the same name and type are added together. A star means the cost was missing for part of it. Untick the box above to edit single entries.')}
- else h+=rows('<th>Holding</th><th>Type</th><th>Fund type</th><th>Held in</th><th>Feed code</th><th class="n">Units</th><th class="n">Put in</th><th class="n">Value</th><th>Status</th><th></th>',
-  D.inv.map(function(r,i){return keep(r)?'<tr><td>'+esc(r.name)+'</td><td>'+esc(r.cat)+'</td><td>'+esc(r.sub=="-"?"":r.sub)+'</td><td>'+esc(r.plat)+'</td><td>'+esc(r.code||"")+'</td><td class="n">'+(r.qty===""?"-":r.qty)+'</td><td class="n">'+(r.invested===""?"-":inr(r.invested))+'</td><td class="n">'+inr(r.value)+'</td><td><span class="pill">'+esc(r.status)+'</span></td><td><button class="btn link" data-dr="inv" data-i="'+i+'">Edit</button><button class="btn link danger" data-del="inv|'+i+'">Delete</button></td></tr>':""}).join(""),"");
+ else{var singles=D.inv.map(function(r,i){return{r:r,i:i}}).filter(function(x){return keep(x.r)});
+  singles.sort(function(a,b){if(psort=="name")return a.r.name<b.r.name?-1:1;
+   if(psort=="gain"){var ga=(a.r.invested>0)?num(a.r.value)/num(a.r.invested)-1:-9,gb=(b.r.invested>0)?num(b.r.value)/num(b.r.invested)-1:-9;return gb-ga}
+   return num(b.r.value)-num(a.r.value)});
+  if(pview=="cards")return h+singles.map(function(x){var r=x.r,
+    g=(r.invested!==""&&r.invested!=null&&num(r.invested)>0)?(num(r.value)/num(r.invested)-1)*100:null;
+   return holdCard({name:esc(r.name),meta:esc(r.cat)+(r.sub&&r.sub!="-"?" · "+esc(r.sub):"")+(r.plat?" · "+esc(r.plat):"")+(r.status!="Active"?' · <span class="pill">'+esc(r.status)+'</span>':""),
+    right:'<b>'+inr(r.value)+'</b>',sub:(shownV?(num(r.value)/shownV*100).toFixed(1)+'% of these':""),
+    lines:[["units",r.qty===""?"-":String(r.qty)],["put in",r.invested===""?"-":inr(r.invested)],
+      ["gain",g===null?"-":'<span class="'+(g>=0?"up":"down")+'">'+(g>0?"+":"")+g.toFixed(1)+'%</span>'],
+      ["code",r.code?esc(r.code):"typed in"],["price",r.live?esc(String(r.live)):"-"]],i:x.i})}).join("");
+  h+=rows('<th>Holding</th><th>Type</th><th>Fund type</th><th>Held in</th><th>Feed code</th><th class="n">Units</th><th class="n">Put in</th><th class="n">Value</th><th>Status</th><th></th>',
+  D.inv.map(function(r,i){return keep(r)?'<tr><td>'+esc(r.name)+'</td><td>'+esc(r.cat)+'</td><td>'+esc(r.sub=="-"?"":r.sub)+'</td><td>'+esc(r.plat)+'</td><td>'+esc(r.code||"")+'</td><td class="n">'+(r.qty===""?"-":r.qty)+'</td><td class="n">'+(r.invested===""?"-":inr(r.invested))+'</td><td class="n">'+inr(r.value)+'</td><td><span class="pill">'+esc(r.status)+'</span></td><td><button class="btn link" data-dr="inv" data-i="'+i+'">Edit</button><button class="btn link danger" data-del="inv|'+i+'">Delete</button></td></tr>':""}).join(""),"")}
  return h}
 
 function activity(){
@@ -554,7 +602,7 @@ function confirmSip(k,skip){var due=dueSips(),x=due[k];if(!x)return;
 var sipDate={};
 function sipDue(){var due=dueSips();if(!due.length)return"";
  var h='<h2>Instalments to confirm</h2><p class="note">The dashboard cannot see your actual purchases, so it works the units out from the amount and the price on the day. Change the date if your statement shows a different one, check the amount, then confirm. A price is filled in only when it belongs to that exact day, so a day whose NAV is not out yet waits for the next update. If an instalment did not go through, press Not taken.</p>';
- h+='<div class="panel tw"><table><tr><th>Date</th><th>Holding</th><th>Amount</th><th>Price used</th><th class="n">Units</th><th></th></tr>';
+ h+='<div class="panel tw"><table class="stick"><tr><th>Date</th><th>Holding</th><th>Amount</th><th>Price used</th><th class="n">Units</th><th></th></tr>';
  due.forEach(function(x,k){var when=sipDate[x.r.name+"|"+x.iso]||x.iso,
   p=x.r.code?navOn(x.r.code,when):null,nav=(p&&p.exact)?p.price:"",
   amt=num(x.r.mc),u=nav?Math.round(amt/nav*1e4)/1e4:"",note;
@@ -976,7 +1024,7 @@ function dcReview(){if(!DC)return"";
  dcClashes=dcClash();
  var h='<div class="panel" style="margin-top:12px;padding:16px"><p style="margin-top:0">'+DC.schemes.length+' schemes found'+(DC.period?' for '+esc(DC.period):"")+'.</p>';
  DC.warn.forEach(function(w){h+='<div class="flag">'+esc(w)+'</div>'});
- h+='<div class="tw"><table><tr><th>Use</th><th>Scheme</th><th class="n">Units now</th><th class="n">Cost</th><th class="n">Value</th><th>Bought</th><th>Sold</th><th>In your list</th></tr>';
+ h+='<div class="panel tw"><table class="stick"><tr><th>Use</th><th>Scheme</th><th class="n">Units now</th><th class="n">Cost</th><th class="n">Value</th><th>Bought</th><th>Sold</th><th>In your list</th></tr>';
  DC.schemes.forEach(function(s,i){var m=dcMatch(s),clash=dcClashes[i];
   h+='<tr><td><input type="checkbox" id="dk'+i+'" checked style="width:auto"></td>'+
    '<td>'+esc(s.name)+'<br><span class="note">'+esc(s.isin)+(s.demat?" · demat":"")+(s.folio?" · folio "+esc(s.folio):"")+'</span></td>'+
@@ -989,7 +1037,7 @@ function dcReview(){if(!DC)return"";
  var sales=[];DC.schemes.forEach(function(s,i){s.sold.forEach(function(x,j){sales.push({s:s,si:i,x:x,j:j})})});
  if(sales.length){
   h+='<h3 style="font:500 15px var(--serif);margin:18px 0 6px">Sales found</h3><p class="note">These are recorded for tax only, because the units above already exclude them. The statement does not say what the units cost you, so fill that in where you can. Leave it blank and the sale is kept but left out of the tax figures until you do.</p>';
-  h+='<div class="tw"><table><tr><th>Use</th><th>Date</th><th>Scheme</th><th class="n">Units</th><th class="n">Received</th><th class="n">What it cost you</th><th>Bought on</th></tr>';
+  h+='<div class="panel tw"><table class="stick"><tr><th>Use</th><th>Date</th><th>Scheme</th><th class="n">Units</th><th class="n">Received</th><th class="n">What it cost you</th><th>Bought on</th></tr>';
   sales.forEach(function(q,k){
    h+='<tr><td><input type="checkbox" id="ds'+k+'" checked style="width:auto"></td><td>'+esc(q.x.date)+'</td><td>'+esc(q.s.name)+'</td>'+
     '<td class="n">'+Math.abs(q.x.units)+'</td><td class="n">'+inr(Math.abs(q.x.amount))+'</td>'+
@@ -1111,6 +1159,7 @@ document.addEventListener("click",function(ev){var t=ev.target,g=function(a){ret
  if(g("data-dr")){dr={k:g("data-dr"),i:g("data-i")==null?-1:+g("data-i")};err="";ok="";render();return}
  if(g("data-close")||t.className=="drawer"){dr=null;err="";render();return}
  if(g("data-save")){saveForm();return}
+ if(g("data-pv")){pview=g("data-pv");render();return}
  if(g("data-preset")){var pv=g("data-preset");
   if(pv=="x")sF={theme:"All",metric:"y1",dir:"more",val:"",off:"Any",vol:"Any",own:"All",sort:"y1",q:"",note:""};
   else{var P=PRESETS[+pv];sF={theme:sF.theme,metric:"y1",dir:"more",val:"",off:"Any",vol:"Any",own:sF.own,sort:"y1",q:"",note:P[1]};
@@ -1140,6 +1189,7 @@ document.addEventListener("input",function(e){var t=e.target;
  if(t.id=="n_q"){nQ=t.value;var pos=t.selectionStart;render();var n=document.getElementById("n_q");if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(x){}}}});
 document.addEventListener("change",function(e){var t=e.target;
  if(t.id=="merge"){merge=t.checked;render();return}
+ if(t.id=="psort"){psort=t.value;render();return}
  if(t.id=="n_theme"){nTheme=t.value;render();return}
  if(/^s_(theme|metric|dir|val|off|vol|own)$/.test(t.id)){sF[t.id.slice(2)]=t.value;sF.note="";render();return}
  if(t.id=="n_small"){nSmall=t.checked;render();return}
