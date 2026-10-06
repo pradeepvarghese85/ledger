@@ -930,23 +930,41 @@ function pdfLines(pages){
 function dnum(t){if(t==null)return null;var neg=/^\(.*\)$/.test(t.trim());
  var v=parseFloat(t.replace(/[(),]/g,"").replace(/[^0-9.\-]/g,""));
  if(!isFinite(v))return null;return neg?-v:v}
+function cleanName(t){
+ return String(t||"")
+  .replace(/\(Demat\)|\(Non[\s-]?Demat\)/gi," ")
+  .replace(/\((formerly|erstwhile)[^)]*\)?/gi," ")
+  .replace(/\b(Registrar|Advisor|Nominee)\b.*$/i," ")
+  .replace(/\bISIN\b.*$/i," ")
+  .replace(/^[\s)(,.-]+/,"")
+  .replace(/^[A-Z0-9]{3,8}\s*[-–]\s*(?=[A-Za-z])/,"")
+  .replace(/[\s)(,.-]+$/,"")
+  .replace(/\s+/g," ").trim()}
 function parseDetailed(lines){
  var DATE=/^(\d{2})-([A-Za-z]{3})-(\d{4})\b/,
   MON={jan:"01",feb:"02",mar:"03",apr:"04",may:"05",jun:"06",jul:"07",aug:"08",sep:"09",oct:"10",nov:"11",dec:"12"},
   NUMS=/\(?-?[\d,]+\.\d{1,4}\)?/g,
-  schemes=[],cur=null,period="",warn=[],folio="";
+  schemes=[],cur=null,period="",warn=[],folio="",prev=[];
  lines.forEach(function(raw){
   var t=raw.replace(/\s+/g," ").trim();
   var pm=t.match(/(\d{2}-[A-Za-z]{3}-\d{4})\s*To\s*(\d{2}-[A-Za-z]{3}-\d{4})/i);
   if(pm&&!period)period=pm[1]+" to "+pm[2];
   var im=t.match(/ISIN\s*:?\s*(IN[EF][0-9A-Z]{8}[0-9])/);
   if(im){
-   var name=t.slice(0,t.indexOf("ISIN")).replace(/\s*[-–]\s*$/,"").replace(/\(Demat\)|\(Non-Demat\)/gi,"")
-     .replace(/\s*\(formerly[^)]*\)/i,"").replace(/\s*\(erstwhile[^)]*\)/i,"")
-     .replace(/^[A-Z0-9]{3,8}\s*[-–]\s*/,"").replace(/\s*[-–]\s*$/,"").trim();
+   var head=t.slice(0,t.indexOf("ISIN"));
+   // a long scheme title wraps onto more than one line, so the part before the ISIN
+   // can be a fragment such as "Fund)" or nothing at all. Pull the line above in.
+   // a fragment shows up either as too little text, or as a stray ")" whose "(" was
+   // left on the line above, as in "Fund) (Demat) - ISIN:"
+   var frag=function(x){return cleanName(x).length<14||
+     (x.split(")").length-1)>(x.split("(").length-1)};
+   for(var b=prev.length-1;b>=0&&frag(head);b--)head=prev[b]+" "+head;
+   var name=cleanName(head);
    cur={isin:im[1],name:name||im[1],demat:/\(Demat\)/i.test(t),folio:folio,opening:null,closing:null,
         nav:null,cost:null,value:null,tx:[],lines:0};
    schemes.push(cur);return}
+  if(t&&!/folio no|pan\s*:|kyc|nominee|opening unit|closing unit|registrar|^\d{2}-[A-Za-z]{3}-\d{4}/i.test(t)){
+   prev.push(t);if(prev.length>2)prev.shift()}
   var f=t.match(/Folio No\s*:?\s*([0-9A-Za-z\/ ]+?)(\s+PAN|\s+KYC|$)/i);
   if(f){folio=f[1].trim().replace(/\s+/g,"");if(cur&&!cur.folio)cur.folio=folio;return}
   if(!cur)return;
@@ -972,7 +990,8 @@ function parseDetailed(lines){
  schemes.forEach(function(s){
   var sum=s.opening==null?null:s.tx.reduce(function(a,x){return a+(x.units||0)},s.opening);
   s.check=(sum==null||s.closing==null)?null:Math.abs(sum-s.closing)<=0.01;
-  if(s.check===false)warn.push(s.name+": the transactions do not add up to the closing balance");
+  if(s.check===false){s.gap=Math.round((sum-s.closing)*1e4)/1e4;
+   warn.push(s.name+": opening plus the transactions comes to "+Math.round(sum*1e4)/1e4+" units, but the statement says "+s.closing+", a difference of "+s.gap+". The closing balance is used, so your units stay right; the gap usually means a row this reader did not understand.")}
   s.sold=s.tx.filter(function(x){return x.kind=="out"});
   s.bought=s.tx.filter(function(x){return x.kind=="in"})});
  return{period:period,schemes:schemes,warn:warn}}
@@ -1004,7 +1023,9 @@ function dcReview(){if(!DC)return"";
    '<td>'+esc(s.name)+'<br><span class="note">'+esc(s.isin)+(s.demat?" · demat":"")+(s.folio?" · folio "+esc(s.folio):"")+'</span></td>'+
    '<td class="n">'+(s.closing==null?"-":s.closing)+'</td><td class="n">'+(s.cost==null?"-":inr(s.cost))+'</td><td class="n">'+(s.value==null?"-":inr(s.value))+'</td>'+
    '<td class="n">'+s.bought.length+'</td><td class="n">'+(s.sold.length?'<b class="down">'+s.sold.length+'</b>':"0")+'</td>'+
-   '<td>'+(m?esc(m.r.name):'<span class="note">new</span>')+(s.check===false?' <span class="down">does not add up</span>':"")+'</td></tr>'});
+   '<td>'+(m?esc(m.r.name):'<span class="note">new</span>')+(s.check===false?' <span class="down">off by '+s.gap+' units</span>':"")+'</td></tr>';
+  if(s.check===false)h+='<tr><td></td><td colspan="7" class="note" style="white-space:normal">What was read: '+
+   s.tx.map(function(x){return esc(x.date)+" "+esc((x.desc||"").slice(0,40))+(x.units!=null?" · "+x.units+" units":"")+(x.charge!=null?" · charge "+x.charge:"")}).join("<br>")+'</td></tr>'});
  h+='</table></div>';
  var sales=[];DC.schemes.forEach(function(s,i){s.sold.forEach(function(x,j){sales.push({s:s,si:i,x:x,j:j})})});
  if(sales.length){
