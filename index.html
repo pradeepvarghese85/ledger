@@ -87,6 +87,15 @@ textarea{font-family:ui-monospace,Menlo,monospace;font-size:12.5px}
 .seg button{background:none;border:0;padding:6px 13px;font:14px var(--sans);color:var(--soft);cursor:pointer}
 .seg button.on{background:var(--deep);color:var(--paper);font-weight:500}
 .viewbar select{width:auto}
+.info{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:50%;border:1px solid var(--rule);
+ color:var(--soft);font:600 10px var(--sans);cursor:help;vertical-align:1px;background:var(--surface);user-select:none}
+.info:hover,.info:focus{background:var(--deep);color:var(--paper);border-color:var(--deep);outline:none}
+label{position:relative}
+.info::after{content:attr(data-tip);position:absolute;left:0;top:calc(100% + 6px);z-index:20;
+ width:max-content;max-width:min(300px,78vw);background:var(--ink);color:var(--paper);
+ padding:8px 11px;border-radius:8px;font:400 12.5px/1.45 var(--sans);letter-spacing:0;
+ box-shadow:0 6px 20px rgba(10,18,25,.22);opacity:0;visibility:hidden;transition:opacity .12s;pointer-events:none;white-space:normal;text-align:left}
+.info:hover::after,.info:focus::after{opacity:1;visibility:visible}
 .flag{border-left:3px solid var(--amber);background:var(--surface);border-radius:0 8px 8px 0;padding:11px 15px;margin:9px 0;font-size:14px}
 .err{color:var(--down);font-size:13.5px;margin-top:10px}
 .ok{color:var(--up);font-size:13.5px;margin-top:10px}
@@ -229,7 +238,7 @@ function portfolio(){
   '<div><label>Showing</label><b style="font:500 17px var(--serif)">'+shown.length+' of '+D.inv.length+' · '+inr(shownV)+(allV&&filt!="All"?' · '+(shownV/allV*100).toFixed(1)+'% of everything':"")+'</b></div></div>';
  h+='<div class="viewbar"><label class="sw" style="margin:0"><input type="checkbox" id="merge"'+(merge?" checked":"")+'> Combine the same holding across brokers and folios</label>'+
   '<span class="seg"><button class="'+(pview=="cards"?"on":"")+'" data-pv="cards">Cards</button><button class="'+(pview=="table"?"on":"")+'" data-pv="table">Table</button></span>'+
-  '<select id="psort"><option value="value"'+(psort=="value"?" selected":"")+'>Biggest first</option><option value="name"'+(psort=="name"?" selected":"")+'>By name</option><option value="gain"'+(psort=="gain"?" selected":"")+'>Best gain first</option></select></div>';
+  '<label for="psort" style="display:inline">Order</label> <select id="psort"><option value="value"'+(psort=="value"?" selected":"")+'>Biggest first</option><option value="name"'+(psort=="name"?" selected":"")+'>By name</option><option value="gain"'+(psort=="gain"?" selected":"")+'>Best gain first</option></select></div>';
  if(merge){var M={},o=[];shown.forEach(function(r){var k=r.cat+"|"+(r.name||"").toLowerCase().replace(/\b(limited|ltd)\b/g,"").replace(/[^a-z0-9]/g,"");
    if(!M[k]){M[k]={r:r,pl:[],q:0,i:0,v:0,part:false};o.push(M[k])}var m=M[k];if(r.plat&&m.pl.indexOf(r.plat)<0)m.pl.push(r.plat);
    m.q+=num(r.qty);m.v+=num(r.value);if(r.invested===""||r.invested==null)m.part=true;else m.i+=num(r.invested)});
@@ -602,7 +611,7 @@ function confirmSip(k,skip){var due=dueSips(),x=due[k];if(!x)return;
 var sipDate={};
 function sipDue(){var due=dueSips();if(!due.length)return"";
  var h='<h2>Instalments to confirm</h2><p class="note">The dashboard cannot see your actual purchases, so it works the units out from the amount and the price on the day. Change the date if your statement shows a different one, check the amount, then confirm. A price is filled in only when it belongs to that exact day, so a day whose NAV is not out yet waits for the next update. If an instalment did not go through, press Not taken.</p>';
- h+='<div class="panel tw"><table class="stick"><tr><th>Date</th><th>Holding</th><th>Amount</th><th>Price used</th><th class="n">Units</th><th></th></tr>';
+ h+='<div class="panel tw"><table class="stick"><thead><tr><th>Date '+tip("The day the money actually reached the fund. Change it if your statement shows another date, and the price for that day is used.")+'</th><th>Holding</th><th>Amount '+tip("What left your bank for this instalment. Change it if a step-up has raised it since.")+'</th><th>Price used '+tip("The NAV or price on the date shown. It is filled in only when a price exists for that exact day; otherwise type it from your statement.")+'</th><th class="n">Units</th><th></th></tr></thead><tbody>';
  due.forEach(function(x,k){var when=sipDate[x.r.name+"|"+x.iso]||x.iso,
   p=x.r.code?navOn(x.r.code,when):null,nav=(p&&p.exact)?p.price:"",
   amt=num(x.r.mc),u=nav?Math.round(amt/nav*1e4)/1e4:"",note;
@@ -1143,6 +1152,105 @@ function checkup(){var r=qc();
  h+='<h2>Things the dashboard cannot check</h2><p class="note">That your units and costs match your broker and CAS. That a price belongs to the right scheme, beyond the ISIN test. That your income and bills are complete and current. Any holding you have not entered at all.</p>';
  return h}
 
+
+/* ---------- the little (i) beside every box ---------- */
+var HELP={
+ // a holding
+ "inv:f_name":"What you call it. Keep it the same as the name used elsewhere, so the same holding held in two places can be added together.",
+ "inv:f_cat":"What kind of thing it is. This decides how it is grouped, and how a sale of it is taxed.",
+ "inv:f_sub":"For funds only. Large cap, small cap, ELSS, liquid and so on. It drives the grouping on the dashboard and the filters on the Portfolio page. Leave it as - for shares.",
+ "inv:f_plat":"Where it sits: Zerodha, Upstox, INDmoney, a folio number, your bank. Only used to tell two copies of the same holding apart.",
+ "inv:f_code":"The code that fetches the price. A Yahoo symbol such as RVNL.NS or QQQM, or the MF: label you gave the fund in watchlist.json. Leave it blank for PPF, EPF, NPS, gold and deposits, and type their value in yourself. The Data page lists the format for every kind of holding.",
+ "inv:f_mkt":"Which market it trades in. A US or China holding has its price converted into rupees for you, and is flagged for Schedule FA at tax time.",
+ "inv:f_qty":"Units or shares you hold now, decimals and all. For PPF, EPF and deposits leave it blank and use the value box instead.",
+ "inv:f_invested":"Everything you have put in so far, less anything you have taken out. This is what the gain is measured against. Leave it blank if you do not know; the gain then shows as unknown rather than wrong.",
+ "inv:f_value":"What it is worth today. If a price feed code is set, this is overwritten on every update, so you need only fill it in for things you price yourself.",
+ "inv:f_mc":"The amount of your monthly SIP or contribution. It feeds the SIP calendar and counts as monthly investing when your spare cash is worked out.",
+ "inv:f_day":"The day of the month the money goes out. If that day is a weekend or a market holiday, the calendar moves it to the next working day in that market.",
+ "inv:f_rate":"The interest rate, for PPF, EPF and deposits. It is recorded for reference only; nothing is calculated from it yet.",
+ "inv:f_status":"Active means money is still going in. Paused means temporarily stopped. Stopped means no more is going in, though you may still hold units.",
+ "inv:f_mat":"When a deposit matures, when an ELSS lock-in ends, or when a tranche vests. Anything still locked is shown as a decision you cannot act on yet.",
+ "inv:f_note":"Anything you want to remember about it. Only you ever read this.",
+ // income
+ "inc:f_name":"What to call it: Salary, rent from the flat, a consulting client.",
+ "inc:f_type":"The kind of income. Salary and rent feed the matching boxes of the ITR-2 worksheet.",
+ "inc:f_amt":"The amount you actually receive, after tax and deductions. Use your take-home figure, not your gross pay.",
+ "inc:f_freq":"How often it arrives. Quarterly and yearly amounts are converted to a monthly figure for you.",
+ "inc:f_note":"Anything worth remembering, such as when it is next reviewed.",
+ // loans and bills
+ "lia:f_name":"What to call it: Home loan, the car, the health premium.",
+ "lia:f_type":"The kind of outgoing. Loans and credit cards count towards the EMI share of your income, which is flagged above 40%.",
+ "lia:f_amt":"What you pay each time, so the EMI rather than the loan amount, and the premium rather than the sum assured.",
+ "lia:f_freq":"How often you pay it. A yearly premium entered as monthly will wreck the figures, so this one is worth a second look.",
+ "lia:f_out":"How much is still owed today. It is subtracted from your investments to give your net worth. Leave blank for a bill that is not a debt.",
+ "lia:f_end":"When the last payment falls due. For reference only.",
+ "lia:f_status":"Active counts towards your monthly outgoings. Closed is kept for the record but counts for nothing.",
+ "lia:f_note":"Anything worth remembering, such as the rate or the lender.",
+ // a sale or withdrawal
+ "t_kind":"What happened. Loan entries change what you owe; everything else affects a holding and the tax.",
+ "t_item":"Which holding it was. Choose Something I no longer hold to record a sale of something that has left your portfolio.",
+ "t_apply":"The important one. Choose the second option when the units you have entered came from a statement dated after the sale, as a CAS does. Otherwise the sale is taken off twice.",
+ "t_date":"The date of the sale or redemption, as your statement shows it.",
+ "t_amt":"What actually reached you, after exit load and STT.",
+ "t_units":"How many units or shares went. Used to work out how much of the holding was sold.",
+ "t_cost":"What those particular units cost you. Leave it blank and it is worked out from what you put in. For shares bought before 31 January 2018, use the higher of your cost and the price on that date.",
+ "t_buy":"When the units sold were bought. Funds sell the oldest units first, so use the oldest date. Leave it blank if a sale covers many instalments and set the tax treatment below instead.",
+ "t_force":"Set this when no single purchase date fits. Your capital gains statement from CAMS or KFintech says which part is long term and which is short. If it is split, record two sales.",
+ "t_name":"The name of the thing you sold, as you would recognise it later.",
+ "t_cat":"What it was. This decides the tax treatment, so equity funds and shares are taxed differently from debt and gold.",
+ "t_sub":"For a fund, what kind it was. An equity fund is taxed differently from a debt fund.",
+ "t_mkt":"Where it traded. Foreign holdings have their own reporting under Schedule FA.",
+ "t_note":"Anything worth remembering about the sale.",
+ // what you can afford
+ "p_people":"How many of you are travelling. The cost of each destination is multiplied by this.",
+ "p_months":"How long you would save before going. Longer means a bigger budget, and a later trip.",
+ "p_floor":"How many months of bills you want to keep untouched as an emergency fund. Three is the usual minimum, six is comfortable. Only cash above this is counted as spendable.",
+ // tax
+ "fy":"Which financial year to show. Indian years run April to March, so a sale in May 2026 belongs to 2026-27.",
+ "slab":"The rate you pay on your next rupee of ordinary income. Used only for short-term gains on things that are not shares or equity funds.",
+ "i_sal":"Your salary for the whole year, before deductions, as shown in Form 16.",
+ "i_hp":"Rent received for the year, less municipal taxes, the standard 30% and any home loan interest.",
+ "i_int":"Interest for the year from savings accounts, fixed deposits and recurring deposits. Check it against your AIS.",
+ "i_div":"Dividends received for the year. These are taxed at your slab rate.",
+ "i_oth":"Anything else: freelance work, gifts that are taxable, and so on.",
+ "i_c80c":"PPF, EPF, ELSS, life insurance, principal on a home loan, tuition fees. Capped at ₹1.5 lakh, and only under the old regime.",
+ "i_c80n":"The extra ₹50,000 for NPS under 80CCD(1B), over and above 80C. Old regime only.",
+ "i_c80d":"Health insurance premiums for you and your parents. Old regime only.",
+ "i_dd":"Any other deduction you claim, such as 80G donations or 80TTA interest.",
+ "i_tds":"Tax already paid for the year: TDS from your salary and interest, plus any advance tax.",
+ // screen
+ "s_theme":"The industry label you gave each company in universe.json. Edit that file to add industries or move a company.",
+ "s_metric":"What to test. Returns are over the period named. Jumpiness is how much the price swings over a year, so 60% means large daily moves in both directions.",
+ "s_dir":"Whether you want names above or below the figure you type.",
+ "s_val":"The percentage to compare against. Leave it empty to ignore this test.",
+ "s_off":"How far below its highest price of the past year a share is trading. Near the high means momentum; well below can mean a bargain or a problem.",
+ "s_vol":"Filters out the wild ones, or finds only them.",
+ "s_own":"Hide what you already hold, or look only at it.",
+ "s_q":"Part of a company name, to narrow what is shown.",
+ // news
+ "n_theme":"Markets, one of your industries from themes.json, or news about what you hold.",
+ "n_q":"Filters the headlines already collected. To follow a new industry every day, add it to themes.json in your repository.",
+ // data
+ "dcf":"The detailed statement from CAMS or KFintech, the one listing every purchase and redemption, not the monthly summary.",
+ "dcpw":"The password the statement opens with, usually your PAN in capitals. It is used once and never saved.",
+ "shf":"A holdings file from your broker. It looks for columns named like instrument, quantity, average price and current value.",
+ "shplat":"Where these holdings sit, so they can be told apart from the same share held elsewhere.",
+ "shmkt":"Which market these trade in.",
+ "casmode":"Add keeps what you have and appends. Replace throws away your current list and uses the statement instead.",
+ "casskip":"Leave shares out if a broker file already covers them, to avoid two copies.",
+ "bk":"A copy of everything you have entered. Keep it somewhere safe, and paste it back here to restore or to set up another device.",
+ // portfolio
+ "filt":"Narrows the list to one asset class.",
+ "sub":"Narrows further within that class, for example to ELSS inside equity funds.",
+ "psort":"The order of the list."
+};
+function tip(t){return'<span class="info" tabindex="0" role="button" aria-label="What this means" data-tip="'+esc(t)+'">i</span>'}
+function tips(h){
+ return String(h).replace(/<label for="([^"]+)"([^>]*)>([\s\S]*?)<\/label>/g,function(m,id,attr,txt){
+  var t=(dr&&HELP[dr.k+":"+id])||HELP[id];
+  if(!t)return m;
+  return'<label for="'+id+'"'+attr+'>'+txt+' <span class="info" tabindex="0" role="button" aria-label="What goes here" data-tip="'+esc(t)+'">i</span></label>'})}
+
 /* ---------- shell ---------- */
 var PAGES=[["dash","Dashboard",dash],["port","Portfolio",portfolio],["sig","Sell or hold",signalsPage],["act","Sales and withdrawals",activity],["cash","Income and bills",cash],["sip","SIP calendar",sipPage],["news","News",newsPage],["screen","Find ideas",screenPage],["tax","Tax",taxPage],["check","Check-up",checkup],["data","Data",data]];
 function render(){
@@ -1151,8 +1259,8 @@ function render(){
  var body=PAGES.filter(function(p){return p[0]==page})[0][2]();
  if(ok)body+='<p class="ok">'+esc(ok)+'</p>';
  if(err&&!dr)body+='<p class="err">'+esc(err)+'</p>';
- document.getElementById("main").innerHTML=body;
- document.getElementById("drawer").innerHTML=drawer();
+ document.getElementById("main").innerHTML=tips(body);
+ document.getElementById("drawer").innerHTML=tips(drawer());
  var first=document.querySelector(".drawer input,.drawer select");if(first)first.focus()}
 document.addEventListener("click",function(ev){var t=ev.target,g=function(a){return t.getAttribute&&t.getAttribute(a)};
  if(g("data-go")){var v=g("data-go");if(v.indexOf("dr:")===0){dr={k:v.slice(3),i:-1}}else{page=v}err="";ok="";render();return}
