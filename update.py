@@ -274,6 +274,21 @@ def one_year(code):
     return series, res.get("meta") or {}
 
 
+def base_at(series, days):
+    """The price roughly this many calendar days ago."""
+    if len(series) < 2:
+        return None
+    last_date = series[-1][0]
+    want = (datetime.strptime(last_date, "%Y-%m-%d") - timedelta(days=days)).strftime("%Y-%m-%d")
+    base = None
+    for d, v in series:
+        if d <= want:
+            base = v
+        else:
+            break
+    return base
+
+
 def ret(series, days):
     """Percentage change over roughly this many calendar days."""
     if len(series) < 2:
@@ -314,6 +329,8 @@ def screen(w):
             vol = (sum(m * m for m in moves) / len(moves)) ** 0.5 * (252 ** 0.5) * 100 if moves else None
             out[r["code"]] = {
                 "name": r["name"], "theme": r.get("theme", ""),
+                "b1": base_at(series, 30), "b3": base_at(series, 92),
+                "b6": base_at(series, 183), "b12": base_at(series, 365),
                 "price": round(last, 2), "currency": meta.get("currency", ""),
                 "m1": ret(series, 30), "m3": ret(series, 92), "m6": ret(series, 183), "y1": ret(series, 365),
                 "high": round(hi, 2), "low": round(lo, 2),
@@ -329,6 +346,48 @@ def screen(w):
     if fails:
         print("   missing: %s" % ", ".join(fails[:10]))
     return {"updated": datetime.now(IST).strftime("%d-%m-%Y %H:%M IST"), "stocks": out, "missing": fails}
+
+
+def quick_screen():
+    """Refresh the screen from the latest price alone, using the baselines the full run stored.
+    One small request per name instead of a year of history each time."""
+    old = load(SCREEN, {})
+    S = old.get("stocks") or {}
+    if not S:
+        print("   no screen file yet, so there is nothing to refresh")
+        return None
+    done, missed = 0, 0
+    for code, row in S.items():
+        try:
+            d = get("https://query1.finance.yahoo.com/v8/finance/chart/%s?interval=1d&range=5d"
+                    % urllib.parse.quote(code), tries=1)
+            meta = (((d or {}).get("chart") or {}).get("result") or [{}])[0].get("meta") or {}
+            px = meta.get("regularMarketPrice")
+            if not px:
+                missed += 1
+                continue
+            px = float(px)
+            row["price"] = round(px, 2)
+            for key, b in (("m1", "b1"), ("m3", "b3"), ("m6", "b6"), ("y1", "b12")):
+                if row.get(b):
+                    row[key] = round((px / row[b] - 1) * 100, 1)
+            hi, lo = row.get("high"), row.get("low")
+            if hi:
+                row["high"] = hi = round(max(hi, px), 2)
+                row["offHigh"] = round((px / hi - 1) * 100, 1)
+            if lo:
+                row["low"] = lo = round(min(lo, px), 2)
+                row["upFromLow"] = round((px / lo - 1) * 100, 1)
+            row["date"] = datetime.now(IST).strftime("%Y-%m-%d")
+            done += 1
+        except Exception:
+            missed += 1
+        time.sleep(0.15)
+    old["stocks"] = S
+    old["updated"] = datetime.now(IST).strftime("%d-%m-%Y %H:%M IST")
+    old["quick"] = True
+    print("   refreshed %d, no price for %d" % (done, missed))
+    return old
 
 
 def news(w, holdings=True):
@@ -387,17 +446,33 @@ def news(w, holdings=True):
     return data
 
 
-def main(news_only=False):
+def main(mode=""):
+    """everything = the full run. live = news and a quick screen refresh.
+    close = those plus prices. news and prices do just what they say."""
     w = load(WATCH, {})
-    if news_only:
-        print("News-only run")
-        n = news(w, holdings=False)
-        if n["market"] or n["themes"] or n["items"]:
-            with open(NEWS, "w") as f:
-                json.dump(n, f, indent=1, sort_keys=True)
-            print("Wrote news only. Prices were not touched.")
-        else:
-            print("Nothing came back, so the old news file is kept.")
+    mode = mode or "everything"
+    do_prices = mode in ("everything", "close", "prices")
+    do_full_screen = (mode == "everything")
+    do_quick_screen = mode in ("live", "close", "news")
+    do_news = mode in ("everything", "live", "close", "news")
+    print("Mode: %s" % mode)
+
+    if not do_prices:
+        print("Prices and NAVs are left alone on this run.")
+        if do_quick_screen:
+            print("Screen refresh")
+            sc = quick_screen()
+            if sc and sc.get("stocks"):
+                with open(SCREEN, "w") as f:
+                    json.dump(sc, f, sort_keys=True, separators=(",", ":"))
+        if do_news:
+            n = news(w, holdings=False)
+            if n["market"] or n["themes"] or n["items"]:
+                with open(NEWS, "w") as f:
+                    json.dump(n, f, sort_keys=True, separators=(",", ":"))
+            else:
+                print("   nothing came back, so the old news file is kept")
+        print("Done.")
         return
     old = load(OUT, {"prices": {}})
     oldp = old.get("prices", {})
@@ -504,21 +579,29 @@ def main(news_only=False):
         json.dump(codes, f, indent=1, sort_keys=True)
 
     try:
-        sc = screen(w)
-        if sc["stocks"]:
+        if not (do_full_screen or do_quick_screen):
+            raise StopIteration
+        sc = screen(w) if do_full_screen else quick_screen()
+        if sc and sc.get("stocks"):
             with open(SCREEN, "w") as f:
-                json.dump(sc, f, indent=1, sort_keys=True)
+                json.dump(sc, f, sort_keys=True, separators=(",", ":"))
+    except StopIteration:
+        pass
     except Exception:
         print("   screen step failed, the rest of the run is unaffected")
         traceback.print_exc()
 
     try:
+        if not do_news:
+            raise StopIteration
         n = news(w)
-        if n["market"] or n["items"]:
+        if n["market"] or n["themes"] or n["items"]:
             with open(NEWS, "w") as f:
-                json.dump(n, f, indent=1, sort_keys=True)
+                json.dump(n, f, sort_keys=True, separators=(",", ":"))
         else:
             print("   nothing came back, so the old news file is kept")
+    except StopIteration:
+        pass
     except Exception:
         print("   news step failed, the rest of the run is unaffected")
         traceback.print_exc()
@@ -530,7 +613,7 @@ def main(news_only=False):
 
 if __name__ == "__main__":
     try:
-        main(news_only=(len(sys.argv) > 1 and sys.argv[1] == "news"))
+        main(mode=(sys.argv[1] if len(sys.argv) > 1 else ""))
     except Exception:
         print("\nThe script stopped with an error. The line that matters is the last one:")
         traceback.print_exc()
