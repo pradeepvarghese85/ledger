@@ -786,46 +786,70 @@ function signalsPage(){
  return h}
 
 
+
 /* ---------- news ---------- */
-var NEWS=null,NEWSerr="";
+var NEWS=null,NEWSerr="",nTheme="All",nQ="",nSmall=false;
 function loadNews(){
  if(typeof fetch!="function")return;
  fetch("data/news.json",{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.json()})
  .then(function(j){NEWS=j;render()})
- .catch(function(){NEWSerr="No news file yet. It appears after the next nightly run.";render()})}
-function art(a){
- return'<li style="margin:0 0 8px"><a href="'+esc(a.link||"#")+'" target="_blank" rel="noopener noreferrer">'+esc(a.title||"")+'</a>'+
-  '<br><span class="note">'+esc(a.source||"")+(a.when?' · '+esc(a.when):"")+'</span></li>'}
+ .catch(function(){NEWSerr="No news file yet. It appears after the next run of the job.";render()})}
+function art(a,tag){
+ return'<li style="margin:0 0 9px"><a href="'+esc(a.link||"#")+'" target="_blank" rel="noopener noreferrer">'+esc(a.title||"")+'</a>'+
+  '<br><span class="note">'+(tag?'<span class="pill">'+esc(tag)+'</span> ':"")+esc(a.source||"")+(a.when?' · '+esc(a.when):"")+'</span></li>'}
+function nMatch(a){if(!nQ)return true;
+ var q=nQ.toLowerCase().split(/\s+/).filter(Boolean),t=((a.title||"")+" "+(a.source||"")).toLowerCase();
+ return q.every(function(w){return t.indexOf(w)>-1})}
 function newsPage(){
- var h='<h1>News</h1><p class="lede">Headlines from the past ten days for the markets you are in and the things you hold. Fetched by the nightly job, so this is a digest rather than a live feed.</p>';
+ var h='<h1>News</h1><p class="lede">Headlines for your themes, your markets and the things you hold, collected three times a trading day.</p>';
  if(NEWSerr)return h+'<div class="flag">'+esc(NEWSerr)+'</div>';
  if(!NEWS)return h+'<p class="note">Loading…</p>';
- h+='<p class="note">Collected '+esc(NEWS.updated||"")+'.</p>';
- var scopes={};(NEWS.market||[]).forEach(function(a){(scopes[a.scope||"Markets"]=scopes[a.scope||"Markets"]||[]).push(a)});
- var order=Object.keys(scopes);
- if(order.length){h+='<h2>The markets</h2><div class="panel" style="padding:14px 18px">';
-  order.forEach(function(k){h+='<div style="margin-bottom:10px"><div class="pill">'+esc(k)+'</div><ul style="margin:8px 0 0;padding-left:18px">'+scopes[k].map(art).join("")+'</ul></div>'});
-  h+='</div>'}
- var mine=[],seen={};
- D.inv.forEach(function(r){if(!r.code||seen[r.code]||num(r.value)<=0)return;
-  var n=(NEWS.items||{})[r.code];if(!n||!n.articles||!n.articles.length)return;
-  seen[r.code]=1;mine.push({r:r,n:n})});
- mine.sort(function(a,b){return num(b.r.value)-num(a.r.value)});
- h+='<h2>Your holdings</h2>';
- if(!mine.length)h+='<p class="note">Nothing came back for anything you hold. Smaller companies and most funds rarely make the news.</p>';
- else{
-  var tot=D.inv.reduce(function(a,r){return a+num(r.value)},0);
-  mine.forEach(function(x){
-   h+='<div class="panel" style="padding:14px 18px;margin:10px 0"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline">'+
+ var themes=Object.keys(NEWS.themes||{}),
+  picks=["All","Markets"].concat(themes).concat(["My holdings"]);
+ if(picks.indexOf(nTheme)<0)nTheme="All";
+ h+='<div class="panel" style="padding:12px 16px;display:flex;gap:16px;flex-wrap:wrap;align-items:end">'+
+  '<div><label for="n_theme">Theme</label><select id="n_theme">'+picks.map(function(p){return'<option'+(p==nTheme?" selected":"")+'>'+esc(p)+'</option>'}).join("")+'</select></div>'+
+  '<div style="flex:1;min-width:200px"><label for="n_q">Narrow it down</label><input id="n_q" value="'+esc(nQ)+'" placeholder="an industry, a company, a word"></div>'+
+  '<label class="sw" style="margin:0"><input type="checkbox" id="n_small"'+(nSmall?" checked":"")+'> Smaller companies only</label></div>'+
+  '<p class="note">Collected '+esc(NEWS.updated||"")+'. The box filters what has already been collected. To follow a new industry every day, add it to data/themes.json in your repository.</p>';
+ var shown=0;
+ function block(title,list,tagger){
+  var L=(list||[]).filter(nMatch);if(!L.length)return"";shown+=L.length;
+  return'<h2>'+esc(title)+'</h2><div class="panel" style="padding:14px 18px"><ul style="margin:0;padding-left:18px">'+
+   L.map(function(a){return art(a,tagger?tagger(a):"")}).join("")+'</ul></div>'}
+ var want=function(t){return nTheme=="All"||nTheme==t};
+ if(nSmall){
+  themes.forEach(function(t){if(want(t))h+=block(t+", smaller companies",(NEWS.small||{})[t])});
+  if(!shown)h+='<p class="note">Nothing from the small-company searches matches. Untick the box, or widen the words.</p>';
+  return h+newsFooter()}
+ if((nTheme=="All"||nTheme=="Markets")&&(NEWS.market||[]).length){
+  var byScope={};NEWS.market.forEach(function(a){(byScope[a.scope||"Markets"]=byScope[a.scope||"Markets"]||[]).push(a)});
+  var mk="";Object.keys(byScope).forEach(function(k){mk+=block(k,byScope[k])});
+  h+=mk}
+ themes.forEach(function(t){if(!want(t))return;
+  h+=block(t,NEWS.themes[t]);
+  h+=block(t+", smaller companies",(NEWS.small||{})[t])});
+ if(nTheme=="All"||nTheme=="My holdings"){
+  var mine=[],seen={},tot=D.inv.reduce(function(a,r){return a+num(r.value)},0);
+  D.inv.forEach(function(r){if(!r.code||seen[r.code]||num(r.value)<=0)return;
+   var n=(NEWS.items||{})[r.code];if(!n||!n.articles)return;seen[r.code]=1;mine.push({r:r,n:n})});
+  mine.sort(function(a,b){return num(b.r.value)-num(a.r.value)});
+  var mh="";
+  mine.forEach(function(x){var L=x.n.articles.filter(nMatch);if(!L.length)return;shown+=L.length;
+   mh+='<div class="panel" style="padding:14px 18px;margin:10px 0"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline">'+
     '<div style="font:500 16px var(--serif)">'+esc(x.r.name)+'</div><span class="note">'+inr(x.r.value)+(tot?' · '+(num(x.r.value)/tot*100).toFixed(1)+'%':"")+'</span></div>'+
-    '<ul style="margin:8px 0 0;padding-left:18px">'+x.n.articles.map(art).join("")+'</ul></div>'})}
- h+='<h2>What to do with this</h2><div class="panel" style="padding:14px 18px"><p class="note" style="margin:0 0 8px">Headlines are not a reason to trade. Most are already in the price by the time you read them, and a single story rarely changes what a holding is worth over years. Three questions worth asking of any headline that concerns you:</p>'+
-  '<ul class="note" style="margin:0;padding-left:18px"><li>Does this change what the business or fund will earn over several years, or only this quarter?</li>'+
-  '<li>Would you buy this holding today at today\'s price, knowing this?</li>'+
-  '<li>If you sold on this news, where would the money go, and what would that cost you in tax?</li></ul>'+
-  '<p class="note" style="margin:8px 0 0">For a view on a particular story, paste the headline into a chat with me along with the holding. I can look it up and give you both sides, which this page deliberately does not try to do on its own.</p></div>';
- h+='<p class="note">Headlines and links come from Google News. Opening one takes you to the publisher.</p>';
- return h}
+    '<ul style="margin:8px 0 0;padding-left:18px">'+L.map(function(a){return art(a)}).join("")+'</ul></div>'});
+  if(mh)h+='<h2>Your holdings</h2>'+mh}
+ if(!shown)h+='<p class="note">Nothing matches. Clear the box, or choose a different theme.</p>';
+ return h+newsFooter()}
+function newsFooter(){
+ return'<h2>Before acting on any of it</h2><div class="panel" style="padding:14px 18px">'+
+  '<ul class="note" style="margin:0;padding-left:18px">'+
+  '<li>Does this change what the business earns over years, or only this quarter?</li>'+
+  '<li>Would you buy this holding today at today&rsquo;s price, knowing this?</li>'+
+  '<li>If you sold on this news, where would the money go, and what would the tax be?</li></ul>'+
+  '<p class="note" style="margin:8px 0 0">Small companies move hardest on a theme and fall hardest when it cools, and a story about an order win says nothing about the price you would be paying. For a view on a particular story, paste it into a chat with me with the holding and I will look it up and give you both sides.</p></div>'+
+  '<p class="note">Headlines and links come from Google News. Opening one takes you to the publisher.</p>'}
 
 /* ---------- check-up ---------- */
 function ageDays(d){if(!d)return null;var m=String(d).match(/(\d{2})-(\d{2}|[A-Za-z]{3})-(\d{4})/);if(!m)return null;
@@ -921,8 +945,12 @@ document.addEventListener("click",function(ev){var t=ev.target,g=function(a){ret
  if(g("data-wipe")){D=blank();save();ok="Everything erased.";render();return}});
 document.addEventListener("keydown",function(e){if(e.key=="Escape"&&dr){dr=null;render()}
  if(e.key=="Enter"&&e.target.className==""&&e.target.getAttribute&&e.target.getAttribute("data-go")){page=e.target.getAttribute("data-go");render()}});
+document.addEventListener("input",function(e){var t=e.target;
+ if(t.id=="n_q"){nQ=t.value;var pos=t.selectionStart;render();var n=document.getElementById("n_q");if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(x){}}}});
 document.addEventListener("change",function(e){var t=e.target;
  if(t.id=="merge"){merge=t.checked;render();return}
+ if(t.id=="n_theme"){nTheme=t.value;render();return}
+ if(t.id=="n_small"){nSmall=t.checked;render();return}
  if(t.id=="filt"){filt=t.value;sub="All";render();return}
  if(t.id=="sub"){sub=t.value;render();return}
  if(t.id=="fy"){fy=+t.value;render();return}

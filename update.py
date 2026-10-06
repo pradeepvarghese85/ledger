@@ -19,6 +19,7 @@ DATA = os.path.join(HERE, "data")
 WATCH = os.path.join(DATA, "watchlist.json")
 OUT = os.path.join(DATA, "prices.json")
 NEWS = os.path.join(DATA, "news.json")
+THEMES = os.path.join(DATA, "themes.json")
 CACHE = os.path.join(DATA, "fund-codes.json")
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/129.0 Safari/537.36")
@@ -230,14 +231,6 @@ def past_closes(code):
     return out, res.get("meta") or {}
 
 
-MARKET_TOPICS = [
-    ("India", "Indian stock market Nifty Sensex"),
-    ("India", "RBI monetary policy inflation India"),
-    ("US", "US stock market Federal Reserve"),
-    ("World", "global markets oil rupee dollar"),
-]
-
-
 def headlines(query, limit=4):
     """Headlines from Google News. Titles and links only, nothing more."""
     url = ("https://news.google.com/rss/search?q=" + urllib.parse.quote(query + " when:10d")
@@ -267,32 +260,74 @@ def headlines(query, limit=4):
     return out
 
 
-def news(w):
-    """One file of headlines: the markets, then each thing you hold."""
-    data = {"updated": datetime.now(IST).strftime("%d-%m-%Y %H:%M IST"), "market": [], "items": {}}
-    print("News")
-    for scope, q in MARKET_TOPICS:
-        for a in headlines(q, 3):
-            a["scope"] = scope
-            data["market"].append(a)
-    print("   market: %d headlines" % len(data["market"]))
-    hit = 0
-    for group in ("stocks", "funds"):
-        for row in w.get(group, []):
-            name = row.get("name") or ""
-            if not name:
+def news(w, holdings=True):
+    """One file of headlines: the markets, your themes, small-company angles, and your own holdings."""
+    t = load(THEMES, {})
+    data = {"updated": datetime.now(IST).strftime("%d-%m-%Y %H:%M IST"),
+            "market": [], "themes": {}, "small": {}, "items": {}}
+    seen = set()
+
+    def fresh(arts):
+        out = []
+        for a in arts:
+            key = a["title"].lower()[:70]
+            if key in seen:
                 continue
-            arts = headlines(name, 3)
-            if arts:
-                data["items"][row["code"]] = {"name": name, "articles": arts}
-                hit += 1
-            time.sleep(0.4)
-    print("   holdings with news: %d" % hit)
+            seen.add(key)
+            out.append(a)
+        return out
+
+    print("News")
+    for row in t.get("market", []):
+        for a in fresh(headlines(row.get("query", ""), 3)):
+            a["scope"] = row.get("name", "Markets")
+            data["market"].append(a)
+        time.sleep(0.3)
+    print("   markets: %d" % len(data["market"]))
+
+    for th in t.get("themes", []):
+        name = th.get("name") or ""
+        if not name:
+            continue
+        data["themes"][name] = fresh(headlines(th.get("query", name), 5))
+        time.sleep(0.3)
+        if th.get("small"):
+            data["small"][name] = fresh(headlines(th["small"], 4))
+            time.sleep(0.3)
+        print("   %-34s %d broad, %d small company" % (name, len(data["themes"][name]), len(data["small"].get(name, []))))
+
+    if holdings:
+        hit = 0
+        for group in ("stocks", "funds"):
+            for row in w.get(group, []):
+                name = row.get("name") or ""
+                if not name:
+                    continue
+                arts = fresh(headlines(name, 3))
+                if arts:
+                    data["items"][row["code"]] = {"name": name, "articles": arts}
+                    hit += 1
+                time.sleep(0.4)
+        print("   holdings with news: %d" % hit)
+    else:
+        old = load(NEWS, {})
+        data["items"] = old.get("items", {})
+        print("   holdings: kept from the last full run")
     return data
 
 
-def main():
+def main(news_only=False):
     w = load(WATCH, {})
+    if news_only:
+        print("News-only run")
+        n = news(w, holdings=False)
+        if n["market"] or n["themes"] or n["items"]:
+            with open(NEWS, "w") as f:
+                json.dump(n, f, indent=1, sort_keys=True)
+            print("Wrote news only. Prices were not touched.")
+        else:
+            print("Nothing came back, so the old news file is kept.")
+        return
     old = load(OUT, {"prices": {}})
     oldp = old.get("prices", {})
     codes = load(CACHE, {})
@@ -415,7 +450,7 @@ def main():
 
 if __name__ == "__main__":
     try:
-        main()
+        main(news_only=(len(sys.argv) > 1 and sys.argv[1] == "news"))
     except Exception:
         print("\nThe script stopped with an error. The line that matters is the last one:")
         traceback.print_exc()
