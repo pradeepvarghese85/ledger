@@ -958,13 +958,19 @@ function parseDetailed(lines){
    // left on the line above, as in "Fund) (Demat) - ISIN:"
    var frag=function(x){return cleanName(x).length<14||
      (x.split(")").length-1)>(x.split("(").length-1)};
-   for(var b=prev.length-1;b>=0&&frag(head);b--)head=prev[b]+" "+head;
+   // only join a line that reads like part of a scheme title. That keeps the AMC
+   // heading ("HDFC Mutual Fund") and your own name out of it.
+   var titleish=function(x){var c=cleanName(x);
+    return /(fund|scheme|plan|growth|idcw|elss|cap|equity|debt|hybrid|index|saver|liquid)/i.test(c)
+      && !/^[A-Za-z .&'-]{3,40}\bmutual fund\b\s*$/i.test(c)};
+   for(var b=prev.length-1;b>=0&&frag(head);b--){if(titleish(prev[b]))head=prev[b]+" "+head}
+   if(frag(head)&&cleanName(head).length<6)head=im[1];
    var name=cleanName(head);
    cur={isin:im[1],name:name||im[1],demat:/\(Demat\)/i.test(t),folio:folio,opening:null,closing:null,
         nav:null,cost:null,value:null,tx:[],lines:0};
    schemes.push(cur);return}
-  if(t&&!/folio no|pan\s*:|kyc|nominee|opening unit|closing unit|registrar|^\d{2}-[A-Za-z]{3}-\d{4}/i.test(t)){
-   prev.push(t);if(prev.length>2)prev.shift()}
+  if(t&&!/folio no|pan\s*:|kyc|nominee|opening unit|closing unit|^\d{2}-[A-Za-z]{3}-\d{4}/i.test(t)){
+   prev.push(t);if(prev.length>3)prev.shift()}
   var f=t.match(/Folio No\s*:?\s*([0-9A-Za-z\/ ]+?)(\s+PAN|\s+KYC|$)/i);
   if(f){folio=f[1].trim().replace(/\s+/g,"");if(cur&&!cur.folio)cur.folio=folio;return}
   if(!cur)return;
@@ -988,9 +994,13 @@ function parseDetailed(lines){
   if(/reversal|rejec/i.test(desc))kind="reversal";
   cur.tx.push({date:iso,desc:desc,amount:amt,units:units,nav:nav,bal:bal,kind:kind})});
  schemes.forEach(function(s){
-  var sum=s.opening==null?null:s.tx.reduce(function(a,x){return a+(x.units||0)},s.opening);
+  var moved=s.tx.reduce(function(a,x){return a+(x.units||0)},0),
+   sum=s.opening==null?null:s.opening+moved;
+  s.noOpen=(s.opening==null)||(s.opening===0&&s.closing>0&&Math.abs(moved-s.closing)>0.01);
   s.check=(sum==null||s.closing==null)?null:Math.abs(sum-s.closing)<=0.01;
-  if(s.check===false){s.gap=Math.round((sum-s.closing)*1e4)/1e4;
+  if(s.noOpen){s.gap=null;
+   warn.push(s.name+": the statement shows no opening balance for this one, so the rows cannot be reconciled. Units, cost and value still come straight from the closing lines, so they are right. Check its redemptions against your own records.")}
+  else if(s.check===false){s.gap=Math.round((sum-s.closing)*1e4)/1e4;
    warn.push(s.name+": opening plus the transactions comes to "+Math.round(sum*1e4)/1e4+" units, but the statement says "+s.closing+", a difference of "+s.gap+". The closing balance is used, so your units stay right; the gap usually means a row this reader did not understand.")}
   s.sold=s.tx.filter(function(x){return x.kind=="out"});
   s.bought=s.tx.filter(function(x){return x.kind=="in"})});
@@ -1023,8 +1033,8 @@ function dcReview(){if(!DC)return"";
    '<td>'+esc(s.name)+'<br><span class="note">'+esc(s.isin)+(s.demat?" · demat":"")+(s.folio?" · folio "+esc(s.folio):"")+'</span></td>'+
    '<td class="n">'+(s.closing==null?"-":s.closing)+'</td><td class="n">'+(s.cost==null?"-":inr(s.cost))+'</td><td class="n">'+(s.value==null?"-":inr(s.value))+'</td>'+
    '<td class="n">'+s.bought.length+'</td><td class="n">'+(s.sold.length?'<b class="down">'+s.sold.length+'</b>':"0")+'</td>'+
-   '<td>'+(m?esc(m.r.name):'<span class="note">new</span>')+(s.check===false?' <span class="down">off by '+s.gap+' units</span>':"")+'</td></tr>';
-  if(s.check===false)h+='<tr><td></td><td colspan="7" class="note" style="white-space:normal">What was read: '+
+   '<td>'+(m?esc(m.r.name):'<span class="note">new</span>')+(s.noOpen?' <span class="down">no opening balance shown</span>':s.check===false?' <span class="down">off by '+s.gap+' units</span>':"")+'</td></tr>';
+  if(s.check===false||s.noOpen)h+='<tr><td></td><td colspan="7" class="note" style="white-space:normal">What was read: '+
    s.tx.map(function(x){return esc(x.date)+" "+esc((x.desc||"").slice(0,40))+(x.units!=null?" · "+x.units+" units":"")+(x.charge!=null?" · charge "+x.charge:"")}).join("<br>")+'</td></tr>'});
  h+='</table></div>';
  var sales=[];DC.schemes.forEach(function(s,i){s.sold.forEach(function(x,j){sales.push({s:s,si:i,x:x,j:j})})});
