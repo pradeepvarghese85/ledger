@@ -4,16 +4,16 @@ on:
   schedule:
     # all times are UTC. IST is UTC + 5:30
     - cron: "30 21 * * 1-5"   # 03:00 IST, full run: NAVs, US close, the screen and news
-    - cron: "45 3 * * 1-5"    # 09:15 IST, market open: news and the screen
-    - cron: "0 7 * * 1-5"     # 12:30 IST, midday: news and the screen
-    - cron: "45 10 * * 1-5"   # 16:15 IST, after the Indian close: prices, news and the screen
+    - cron: "45 3 * * 1-5"    # 09:15 IST, market open: news only
+    - cron: "0 7 * * 1-5"     # 12:30 IST, midday: news only
+    - cron: "45 10 * * 1-5"   # 16:15 IST, after the Indian close: prices and news
   workflow_dispatch:
     inputs:
       what:
         description: "What to fetch"
         type: choice
         default: everything
-        options: [everything, live, close, news, prices]
+        options: [everything, live, close, news, prices, screen]
 
 permissions:
   contents: write
