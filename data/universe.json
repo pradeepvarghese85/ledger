@@ -1,0 +1,405 @@
+{
+ "_comment": "The list the screener looks at. Add or remove freely: code is the Yahoo symbol, theme is yours to decide and becomes a filter in the dashboard. Keep it under about 150 names so a run stays quick. Anything you hold is screened too, whether or not it is listed here.",
+ "stocks": [
+  {
+   "code": "TCS.NS",
+   "name": "TCS",
+   "theme": "AI and IT"
+  },
+  {
+   "code": "INFY.NS",
+   "name": "Infosys",
+   "theme": "AI and IT"
+  },
+  {
+   "code": "HCLTECH.NS",
+   "name": "HCL Technologies",
+   "theme": "AI and IT"
+  },
+  {
+   "code": "WIPRO.NS",
+   "name": "Wipro",
+   "theme": "AI and IT"
+  },
+  {
+   "code": "TECHM.NS",
+   "name": "Tech Mahindra",
+   "theme": "AI and IT"
+  },
+  {
+   "code": "LTIM.NS",
+   "name": "LTIMindtree",
+   "theme": "AI and IT"
+  },
+  {
+   "code": "PERSISTENT.NS",
+   "name": "Persistent Systems",
+   "theme": "AI and IT"
+  },
+  {
+   "code": "COFORGE.NS",
+   "name": "Coforge",
+   "theme": "AI and IT"
+  },
+  {
+   "code": "MPHASIS.NS",
+   "name": "Mphasis",
+   "theme": "AI and IT"
+  },
+  {
+   "code": "TATAELXSI.NS",
+   "name": "Tata Elxsi",
+   "theme": "AI and IT"
+  },
+  {
+   "code": "KPITTECH.NS",
+   "name": "KPIT Technologies",
+   "theme": "AI and IT"
+  },
+  {
+   "code": "CYIENT.NS",
+   "name": "Cyient",
+   "theme": "AI and IT"
+  },
+  {
+   "code": "NETWEB.NS",
+   "name": "Netweb Technologies",
+   "theme": "AI and IT"
+  },
+  {
+   "code": "ZENTEC.NS",
+   "name": "Zen Technologies",
+   "theme": "AI and IT"
+  },
+  {
+   "code": "SUZLON.NS",
+   "name": "Suzlon Energy",
+   "theme": "Renewable energy"
+  },
+  {
+   "code": "INOXWIND.NS",
+   "name": "Inox Wind",
+   "theme": "Renewable energy"
+  },
+  {
+   "code": "NTPC.NS",
+   "name": "NTPC",
+   "theme": "Renewable energy"
+  },
+  {
+   "code": "POWERGRID.NS",
+   "name": "Power Grid",
+   "theme": "Renewable energy"
+  },
+  {
+   "code": "TATAPOWER.NS",
+   "name": "Tata Power",
+   "theme": "Renewable energy"
+  },
+  {
+   "code": "JSWENERGY.NS",
+   "name": "JSW Energy",
+   "theme": "Renewable energy"
+  },
+  {
+   "code": "WAAREEENER.NS",
+   "name": "Waaree Energies",
+   "theme": "Renewable energy"
+  },
+  {
+   "code": "PREMIERENE.NS",
+   "name": "Premier Energies",
+   "theme": "Renewable energy"
+  },
+  {
+   "code": "KPIGREEN.NS",
+   "name": "KPI Green Energy",
+   "theme": "Renewable energy"
+  },
+  {
+   "code": "ORIENTGREEN.NS",
+   "name": "Orient Green Power",
+   "theme": "Renewable energy"
+  },
+  {
+   "code": "BOROSIL.NS",
+   "name": "Borosil Renewables",
+   "theme": "Renewable energy"
+  },
+  {
+   "code": "IREDA.NS",
+   "name": "IREDA",
+   "theme": "Renewable energy"
+  },
+  {
+   "code": "HAL.NS",
+   "name": "Hindustan Aeronautics",
+   "theme": "Defence"
+  },
+  {
+   "code": "BEL.NS",
+   "name": "Bharat Electronics",
+   "theme": "Defence"
+  },
+  {
+   "code": "BDL.NS",
+   "name": "Bharat Dynamics",
+   "theme": "Defence"
+  },
+  {
+   "code": "MAZDOCK.NS",
+   "name": "Mazagon Dock",
+   "theme": "Defence"
+  },
+  {
+   "code": "COCHINSHIP.NS",
+   "name": "Cochin Shipyard",
+   "theme": "Defence"
+  },
+  {
+   "code": "GRSE.NS",
+   "name": "Garden Reach Shipbuilders",
+   "theme": "Defence"
+  },
+  {
+   "code": "DATAPATTNS.NS",
+   "name": "Data Patterns",
+   "theme": "Defence"
+  },
+  {
+   "code": "PARAS.NS",
+   "name": "Paras Defence",
+   "theme": "Defence"
+  },
+  {
+   "code": "ASTRAMICRO.NS",
+   "name": "Astra Microwave",
+   "theme": "Defence"
+  },
+  {
+   "code": "MTARTECH.NS",
+   "name": "MTAR Technologies",
+   "theme": "Defence"
+  },
+  {
+   "code": "SOLARINDS.NS",
+   "name": "Solar Industries",
+   "theme": "Defence"
+  },
+  {
+   "code": "UPL.NS",
+   "name": "UPL",
+   "theme": "Agriculture"
+  },
+  {
+   "code": "COROMANDEL.NS",
+   "name": "Coromandel International",
+   "theme": "Agriculture"
+  },
+  {
+   "code": "CHAMBLFERT.NS",
+   "name": "Chambal Fertilisers",
+   "theme": "Agriculture"
+  },
+  {
+   "code": "PIIND.NS",
+   "name": "PI Industries",
+   "theme": "Agriculture"
+  },
+  {
+   "code": "RALLIS.NS",
+   "name": "Rallis India",
+   "theme": "Agriculture"
+  },
+  {
+   "code": "KAVERISEED.NS",
+   "name": "Kaveri Seed",
+   "theme": "Agriculture"
+  },
+  {
+   "code": "DHANUKA.NS",
+   "name": "Dhanuka Agritech",
+   "theme": "Agriculture"
+  },
+  {
+   "code": "BAYERCROP.NS",
+   "name": "Bayer CropScience",
+   "theme": "Agriculture"
+  },
+  {
+   "code": "ESCORTS.NS",
+   "name": "Escorts Kubota",
+   "theme": "Agriculture"
+  },
+  {
+   "code": "VSTTILLERS.NS",
+   "name": "VST Tillers Tractors",
+   "theme": "Agriculture"
+  },
+  {
+   "code": "GODREJAGRO.NS",
+   "name": "Godrej Agrovet",
+   "theme": "Agriculture"
+  },
+  {
+   "code": "RVNL.NS",
+   "name": "RVNL",
+   "theme": "Infrastructure and railways"
+  },
+  {
+   "code": "IRFC.NS",
+   "name": "IRFC",
+   "theme": "Infrastructure and railways"
+  },
+  {
+   "code": "IRCON.NS",
+   "name": "Ircon International",
+   "theme": "Infrastructure and railways"
+  },
+  {
+   "code": "RAILTEL.NS",
+   "name": "RailTel",
+   "theme": "Infrastructure and railways"
+  },
+  {
+   "code": "TITAGARH.NS",
+   "name": "Titagarh Rail Systems",
+   "theme": "Infrastructure and railways"
+  },
+  {
+   "code": "TEXRAIL.NS",
+   "name": "Texmaco Rail",
+   "theme": "Infrastructure and railways"
+  },
+  {
+   "code": "BEML.NS",
+   "name": "BEML",
+   "theme": "Infrastructure and railways"
+  },
+  {
+   "code": "JUPITERWAG.NS",
+   "name": "Jupiter Wagons",
+   "theme": "Infrastructure and railways"
+  },
+  {
+   "code": "LT.NS",
+   "name": "Larsen & Toubro",
+   "theme": "Infrastructure and railways"
+  },
+  {
+   "code": "NBCC.NS",
+   "name": "NBCC",
+   "theme": "Infrastructure and railways"
+  },
+  {
+   "code": "ASHOKA.NS",
+   "name": "Ashoka Buildcon",
+   "theme": "Infrastructure and railways"
+  },
+  {
+   "code": "HCC.NS",
+   "name": "Hindustan Construction",
+   "theme": "Infrastructure and railways"
+  },
+  {
+   "code": "KEC.NS",
+   "name": "KEC International",
+   "theme": "Infrastructure and railways"
+  },
+  {
+   "code": "PNCINFRA.NS",
+   "name": "PNC Infratech",
+   "theme": "Infrastructure and railways"
+  },
+  {
+   "code": "GRINFRA.NS",
+   "name": "G R Infraprojects",
+   "theme": "Infrastructure and railways"
+  },
+  {
+   "code": "ENGINERSIN.NS",
+   "name": "Engineers India",
+   "theme": "Infrastructure and railways"
+  },
+  {
+   "code": "RELIANCE.NS",
+   "name": "Reliance Industries",
+   "theme": "Broad market"
+  },
+  {
+   "code": "HDFCBANK.NS",
+   "name": "HDFC Bank",
+   "theme": "Broad market"
+  },
+  {
+   "code": "ICICIBANK.NS",
+   "name": "ICICI Bank",
+   "theme": "Broad market"
+  },
+  {
+   "code": "SBIN.NS",
+   "name": "State Bank of India",
+   "theme": "Broad market"
+  },
+  {
+   "code": "ITC.NS",
+   "name": "ITC",
+   "theme": "Broad market"
+  },
+  {
+   "code": "TATASTEEL.NS",
+   "name": "Tata Steel",
+   "theme": "Broad market"
+  },
+  {
+   "code": "TATAMOTORS.NS",
+   "name": "Tata Motors",
+   "theme": "Broad market"
+  },
+  {
+   "code": "MARUTI.NS",
+   "name": "Maruti Suzuki",
+   "theme": "Broad market"
+  },
+  {
+   "code": "SUNPHARMA.NS",
+   "name": "Sun Pharma",
+   "theme": "Broad market"
+  },
+  {
+   "code": "TITAN.NS",
+   "name": "Titan",
+   "theme": "Broad market"
+  },
+  {
+   "code": "QQQM",
+   "name": "Invesco NASDAQ 100 ETF",
+   "theme": "US"
+  },
+  {
+   "code": "NVDA",
+   "name": "Nvidia",
+   "theme": "US"
+  },
+  {
+   "code": "MSFT",
+   "name": "Microsoft",
+   "theme": "US"
+  },
+  {
+   "code": "AAPL",
+   "name": "Apple",
+   "theme": "US"
+  },
+  {
+   "code": "GOOGL",
+   "name": "Alphabet",
+   "theme": "US"
+  },
+  {
+   "code": "AMZN",
+   "name": "Amazon",
+   "theme": "US"
+  }
+ ]
+}
