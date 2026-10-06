@@ -259,6 +259,7 @@ function data(){
  h+=casReview();
  h+='<h2>Broker or spreadsheet file</h2><div class="panel" style="padding:16px"><label for="shf">A holdings file from your broker (.csv, .xlsx)</label><input type="file" id="shf" accept=".csv,.xlsx,.xls"><p class="note">It looks for columns named like instrument or symbol, quantity, average price and current value. Anything it cannot match is left for you to check.</p></div>';
  h+=sheetReview();
+ h+='<h2>Detailed CAS, with every transaction</h2><div class="panel" style="padding:16px"><p class="note" style="margin-top:0">The statement from CAMS or KFintech that lists each purchase and redemption, not the monthly summary. It sets your units, cost and value from the statement, records redemptions for tax, and marks funds you have exited. Nothing is applied until you press the button.</p><div class="two"><div><label for="dcf">Detailed CAS PDF</label><input type="file" id="dcf" accept=".pdf">'+(dcName?'<span class="note">Using: '+esc(dcName)+'</span>':'')+'</div><div><label for="dcpw">Key for the file, if it asks</label><input type="text" id="dcpw" class="masked" autocomplete="off" spellcheck="false"></div></div><div class="acts"><button class="btn" data-dcas="read">Read it</button></div></div>'+dcReview();
  h+=codeRef();
  h+='<h2>What the last update fetched</h2>';
  if(!PXm||!PXm.prices)h+='<p class="note">No price file loaded.</p>';
@@ -916,6 +917,141 @@ function screenFoot(){
  '<p class="note" style="margin:0 0 8px">Use it to find candidates, then check the figures on Screener.in or the company&rsquo;s own results before buying anything. Jumpiness is how much the price swings over a year, so 60% means large daily moves in both directions.</p>'+
  '<p class="note" style="margin:0">The list of companies lives in data/universe.json in your repository. Add or remove names there, and set your own industry label for each, which becomes the Industry box above. Anything you hold is included automatically.</p></div>'}
 
+
+/* ---------- detailed CAS (CAMS and KFintech) ---------- */
+var DC=null,dcFile=null,dcName="";
+function pdfLines(pages){
+ var all=[],L=[];
+ pages.forEach(function(it,p){it.forEach(function(x){if(!x.s||!x.s.trim())return;all.push({s:x.s,x:x.x,r:x.x+x.w,y:p*10000-x.y})})});
+ all.sort(function(a,b){return a.y-b.y||a.x-b.x});
+ all.forEach(function(t){var l=L[L.length-1];if(l&&Math.abs(t.y-l.y)<3.5)l.it.push(t);else L.push({y:t.y,it:[t]})});
+ return L.map(function(l){l.it.sort(function(a,b){return a.x-b.x});
+  var s="";l.it.forEach(function(t,i){s+=(i&&t.x-l.it[i-1].r>1.5?"  ":"")+t.s});return s})}
+function dnum(t){if(t==null)return null;var neg=/^\(.*\)$/.test(t.trim());
+ var v=parseFloat(t.replace(/[(),]/g,"").replace(/[^0-9.\-]/g,""));
+ if(!isFinite(v))return null;return neg?-v:v}
+function parseDetailed(lines){
+ var DATE=/^(\d{2})-([A-Za-z]{3})-(\d{4})\b/,
+  MON={jan:"01",feb:"02",mar:"03",apr:"04",may:"05",jun:"06",jul:"07",aug:"08",sep:"09",oct:"10",nov:"11",dec:"12"},
+  NUMS=/\(?-?[\d,]+\.\d{1,4}\)?/g,
+  schemes=[],cur=null,period="",warn=[],folio="";
+ lines.forEach(function(raw){
+  var t=raw.replace(/\s+/g," ").trim();
+  var pm=t.match(/(\d{2}-[A-Za-z]{3}-\d{4})\s*To\s*(\d{2}-[A-Za-z]{3}-\d{4})/i);
+  if(pm&&!period)period=pm[1]+" to "+pm[2];
+  var im=t.match(/ISIN\s*:?\s*(IN[EF][0-9A-Z]{8}[0-9])/);
+  if(im){
+   var name=t.slice(0,t.indexOf("ISIN")).replace(/\s*[-–]\s*$/,"").replace(/\(Demat\)|\(Non-Demat\)/gi,"")
+     .replace(/\s*\(formerly[^)]*\)/i,"").replace(/\s*\(erstwhile[^)]*\)/i,"")
+     .replace(/^[A-Z0-9]{3,8}\s*[-–]\s*/,"").replace(/\s*[-–]\s*$/,"").trim();
+   cur={isin:im[1],name:name||im[1],demat:/\(Demat\)/i.test(t),folio:folio,opening:null,closing:null,
+        nav:null,cost:null,value:null,tx:[],lines:0};
+   schemes.push(cur);return}
+  var f=t.match(/Folio No\s*:?\s*([0-9A-Za-z\/ ]+?)(\s+PAN|\s+KYC|$)/i);
+  if(f){folio=f[1].trim().replace(/\s+/g,"");if(cur&&!cur.folio)cur.folio=folio;return}
+  if(!cur)return;
+  var o=t.match(/Opening Unit Balance\s*:?\s*\(?([\d,.]+)\)?/i);if(o)cur.opening=dnum(o[1]);
+  var c=t.match(/Closing Unit Balance\s*:?\s*\(?([\d,.]+)\)?/i);
+  if(c){cur.closing=dnum(c[1]);
+   var n=t.match(/NAV on [\d\-A-Za-z]+\s*:?\s*INR\s*([\d,.]+)/i);if(n)cur.nav=dnum(n[1]);
+   var cv=t.match(/Total Cost Value\s*:?\s*\(?([\d,.]+)\)?/i);if(cv)cur.cost=dnum(cv[1]);
+   var mv=t.match(/Market Value on [\d\-A-Za-z]+\s*:?\s*INR\s*([\d,.]+)/i);if(mv)cur.value=dnum(mv[1]);
+   return}
+  var d=t.match(DATE);if(!d)return;
+  var iso=d[3]+"-"+(MON[d[2].toLowerCase()]||"01")+"-"+d[1],
+   rest=t.slice(d[0].length),
+   nums=(rest.match(NUMS)||[]).map(dnum),
+   desc=rest.slice(0,rest.search(NUMS)<0?rest.length:rest.search(NUMS)).replace(/\s+/g," ").trim();
+  cur.lines++;
+  if(/stamp duty|stt paid|tds|gst/i.test(desc)||nums.length<3){
+   if(nums.length)cur.tx.push({date:iso,desc:desc,charge:Math.abs(nums[0]||0),kind:"charge"});return}
+  var amt=nums[0],units=nums[1],nav=nums[2],bal=nums.length>3?nums[3]:null,
+   kind=units<0?"out":"in";
+  if(/reversal|rejec/i.test(desc))kind="reversal";
+  cur.tx.push({date:iso,desc:desc,amount:amt,units:units,nav:nav,bal:bal,kind:kind})});
+ schemes.forEach(function(s){
+  var sum=s.opening==null?null:s.tx.reduce(function(a,x){return a+(x.units||0)},s.opening);
+  s.check=(sum==null||s.closing==null)?null:Math.abs(sum-s.closing)<=0.01;
+  if(s.check===false)warn.push(s.name+": the transactions do not add up to the closing balance");
+  s.sold=s.tx.filter(function(x){return x.kind=="out"});
+  s.bought=s.tx.filter(function(x){return x.kind=="in"})});
+ return{period:period,schemes:schemes,warn:warn}}
+function readDetailed(){var pw=val("dcpw"),f=dcFile;err="";ok="";
+ if(!f){err="Choose the detailed CAS first.";render();return}
+ if(!window.pdfjsLib){err="The PDF reader did not load. Check your connection and reload the page.";render();return}
+ pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+ f.arrayBuffer().then(function(buf){return pdfjsLib.getDocument({data:new Uint8Array(buf),password:pw}).promise})
+ .then(function(doc){var pages=[],chain=Promise.resolve();
+  for(var i=1;i<=doc.numPages;i++)(function(n){chain=chain.then(function(){return doc.getPage(n)})
+   .then(function(p){return p.getTextContent()})
+   .then(function(tc){pages.push(tc.items.map(function(t){return{s:t.str,x:t.transform[4],y:t.transform[5],w:t.width}}))})})(i);
+  return chain.then(function(){return pages})})
+ .then(function(pages){DC=parseDetailed(pdfLines(pages));
+  if(!DC.schemes.length)err="No scheme blocks were found. This looks like a summary statement rather than a detailed one.";
+  render()})
+ .catch(function(e){DC=null;err=(e&&e.name=="PasswordException")?(e.code==2?"That password is not right.":"This file needs a password. Type it above and press Read."):"Could not open this file.";render()})}
+function dcMatch(s){var hit=null;
+ D.inv.forEach(function(r,i){if(hit)return;
+  var a=(r.name||"").toLowerCase().replace(/[^a-z0-9]/g,""),b=(s.name||"").toLowerCase().replace(/[^a-z0-9]/g,"");
+  if(a&&b&&(a.indexOf(b)>-1||b.indexOf(a)>-1))hit={r:r,i:i}});
+ return hit}
+function dcReview(){if(!DC)return"";
+ var h='<div class="panel" style="margin-top:12px;padding:16px"><p style="margin-top:0">'+DC.schemes.length+' schemes found'+(DC.period?' for '+esc(DC.period):"")+'.</p>';
+ DC.warn.forEach(function(w){h+='<div class="flag">'+esc(w)+'</div>'});
+ h+='<div class="tw"><table><tr><th>Use</th><th>Scheme</th><th class="n">Units now</th><th class="n">Cost</th><th class="n">Value</th><th>Bought</th><th>Sold</th><th>In your list</th></tr>';
+ DC.schemes.forEach(function(s,i){var m=dcMatch(s);
+  h+='<tr><td><input type="checkbox" id="dk'+i+'" checked style="width:auto"></td>'+
+   '<td>'+esc(s.name)+'<br><span class="note">'+esc(s.isin)+(s.demat?" · demat":"")+(s.folio?" · folio "+esc(s.folio):"")+'</span></td>'+
+   '<td class="n">'+(s.closing==null?"-":s.closing)+'</td><td class="n">'+(s.cost==null?"-":inr(s.cost))+'</td><td class="n">'+(s.value==null?"-":inr(s.value))+'</td>'+
+   '<td class="n">'+s.bought.length+'</td><td class="n">'+(s.sold.length?'<b class="down">'+s.sold.length+'</b>':"0")+'</td>'+
+   '<td>'+(m?esc(m.r.name):'<span class="note">new</span>')+(s.check===false?' <span class="down">does not add up</span>':"")+'</td></tr>'});
+ h+='</table></div>';
+ var sales=[];DC.schemes.forEach(function(s,i){s.sold.forEach(function(x,j){sales.push({s:s,si:i,x:x,j:j})})});
+ if(sales.length){
+  h+='<h3 style="font:500 15px var(--serif);margin:18px 0 6px">Sales found</h3><p class="note">These are recorded for tax only, because the units above already exclude them. The statement does not say what the units cost you, so fill that in where you can. Leave it blank and the sale is kept but left out of the tax figures until you do.</p>';
+  h+='<div class="tw"><table><tr><th>Use</th><th>Date</th><th>Scheme</th><th class="n">Units</th><th class="n">Received</th><th class="n">What it cost you</th><th>Bought on</th></tr>';
+  sales.forEach(function(q,k){
+   h+='<tr><td><input type="checkbox" id="ds'+k+'" checked style="width:auto"></td><td>'+esc(q.x.date)+'</td><td>'+esc(q.s.name)+'</td>'+
+    '<td class="n">'+Math.abs(q.x.units)+'</td><td class="n">'+inr(Math.abs(q.x.amount))+'</td>'+
+    '<td class="n"><input id="dsc'+k+'" type="number" step="any" style="width:120px" placeholder="unknown"></td>'+
+    '<td><input id="dsb'+k+'" type="date" style="width:150px"></td></tr>'});
+  h+='</table></div>'}
+ h+='<div class="acts"><button class="btn" data-dcas="apply">Bring these in</button></div>'+
+  '<p class="note">Units, cost and value are taken from the statement and replace what you have, because the statement is the authority. Nothing is doubled up: purchases are not added again, and sales do not reduce anything.</p></div>';
+ return h}
+function dcApply(){var added=0,updated=0,sales=0,closed=0,wl=[];
+ DC.schemes.forEach(function(s,i){var e=document.getElementById("dk"+i);if(!e||!e.checked)return;
+  var m=dcMatch(s);
+  if(s.closing!==null&&s.closing<=0){
+   if(m){m.r.qty=0;m.r.value=0;m.r.invested=0;m.r.status="Stopped";m.r.mc="";m.r.note=(m.r.note?m.r.note+"; ":"")+"exited, from the CAS";closed++}
+   return}
+  if(m){var r=m.r;
+   if(s.closing!=null)r.qty=s.closing;
+   if(s.cost!=null)r.invested=s.cost;
+   if(s.value!=null)r.value=s.value;
+   if(s.tx.length&&!r.day){var last=s.bought[s.bought.length-1];if(last){r.day=+last.date.slice(8,10);r.mc=Math.abs(last.amount)}}
+   var lastBuy=s.bought.length?s.bought[s.bought.length-1].date:"";
+   if(lastBuy&&(!r.lastSip||r.lastSip<lastBuy))r.lastSip=lastBuy;
+   updated++}
+  else{D.inv.push({name:s.name,cat:"Mutual fund",sub:guessSub(s.name),plat:s.demat?"Demat":("Folio "+s.folio),
+    mkt:"India",code:"",qty:s.closing,invested:s.cost==null?"":s.cost,value:s.value==null?0:s.value,
+    mc:"",day:"",rate:"",status:"Active",mat:"",note:"From the detailed CAS, ISIN "+s.isin,
+    lastSip:s.bought.length?s.bought[s.bought.length-1].date:""});
+   added++;wl.push({code:"MF:"+s.isin.slice(-6),isin:s.isin,name:s.name})}});
+ var k=0;
+ DC.schemes.forEach(function(s,i){s.sold.forEach(function(x){
+  var e=document.getElementById("ds"+k),cost=val("dsc"+k),buy=val("dsb"+k);k++;
+  if(!e||!e.checked)return;
+  D.tx.push({kind:KINDS[1],item:s.name,plat:s.demat?"Demat":("Folio "+s.folio),cat:"Mutual fund",sub:guessSub(s.name),
+   mkt:"India",date:x.date,units:String(Math.abs(x.units)),proceeds:Math.abs(x.amount),
+   cost:cost===""?"":num(cost),buy:buy,note:"From the detailed CAS",taxOnly:true,
+   closed:(s.closing!==null&&s.closing<=0)});
+  sales++})});
+ save();DC=null;dcFile=null;dcName="";
+ ok="Brought in: "+updated+" holdings updated, "+added+" added, "+closed+" marked as exited, "+sales+" sales recorded."+
+  (wl.length?" Add these to watchlist.json so the new ones get prices: "+wl.map(function(x){return x.name+" ("+x.isin+")"}).join(", ")+".":"");
+ render()}
+
 /* ---------- check-up ---------- */
 function ageDays(d){if(!d)return null;var m=String(d).match(/(\d{2})-(\d{2}|[A-Za-z]{3})-(\d{4})/);if(!m)return null;
  var mo={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11}[String(m[2]).toLowerCase().slice(0,3)];
@@ -1005,6 +1141,8 @@ document.addEventListener("click",function(ev){var t=ev.target,g=function(a){ret
  if(g("data-unsip")){undoSip(+g("data-unsip"));return}
  if(g("data-savetx")){saveTx();return}
  if(g("data-del")){var p=g("data-del").split("|");D[p[0]].splice(+p[1],1);save();render();return}
+ if(g("data-dcas")=="read"){readDetailed();return}
+ if(g("data-dcas")=="apply"){dcApply();return}
  if(g("data-cas")=="read"){readCas();return}
  if(g("data-cas")=="add"){casAdd();return}
  if(g("data-sheet")=="add"){sheetAdd();return}
@@ -1037,6 +1175,7 @@ document.addEventListener("change",function(e){var t=e.target;
  if(/^tp[0-9]+$/.test(t.id)){var L3=(D.plan.trips||TRIPS).map(function(x){return{name:x.name,per:x.per,note:x.note}});
   L3[+t.id.slice(2)].per=num(t.value);D.plan.trips=L3;save();render();return}
  if(t.id=="casf"&&t.files[0]){casFile=t.files[0];casName=casFile.name;cas=null;err="";render();return}
+ if(t.id=="dcf"&&t.files[0]){dcFile=t.files[0];dcName=dcFile.name;DC=null;err="";render();return}
  if(t.id=="shf"&&t.files[0]){readSheet(t.files[0]);return}});
 render();
 loadPrices();
