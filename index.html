@@ -141,8 +141,10 @@ function totals(){var t={inv:0,val:0,costKnown:0,valKnown:0,owed:0,inM:0,outM:0,
 /* ---------- tax ---------- */
 function classify(t){var c=t.cat,s=t.sub||"-",n=(t.name||"").toLowerCase();
  if(/^(PPF|EPF|NPS|Fixed deposit|Recurring deposit)$/.test(c))return"none";
- if(!t.buy||t.cost===""||t.cost==null)return"?";
  var eq=(c=="Stock"&&(!t.mkt||t.mkt=="India"))||(c=="Mutual fund"&&((/^Equity/.test(s)&&s!="Equity: International")||s=="Hybrid: Equity-oriented"))||(c=="ETF"&&(!t.mkt||t.mkt=="India")&&!/gold|silver/.test(n));
+ if(t.force=="short")return eq?"S1":"S2";
+ if(t.force=="long")return eq?"L1":"L2";
+ if(!t.buy||t.cost===""||t.cost==null)return"?";
  var buy=new Date(t.buy),sold=new Date(t.date),mo=eq?12:24,e=new Date(buy);e.setMonth(e.getMonth()+mo);
  if(c=="Mutual fund"&&/^Debt/.test(s)&&buy>=new Date("2023-04-01"))return"S2";
  var lt=e<sold;return eq?(lt?"L1":"S1"):(lt?"L2":"S2")}
@@ -216,7 +218,7 @@ function activity(){
  if(!D.tx.length)return h+empty("Nothing recorded yet.","Record one","dr:tx");
  return h+rows('<th>Date</th><th>What happened</th><th>Item</th><th class="n">Amount</th><th class="n">Cost</th><th class="n">Gain</th><th>Tax treatment</th><th></th>',
   D.tx.map(function(t,i){var l=isLoan(t.kind),b=l?"none":classify(t);
-  return'<tr><td>'+esc(t.date)+'</td><td>'+esc(t.kind)+(t.taxOnly?' <span class="pill">tax only</span>':"")+(t.closed?' <span class="pill">closed</span>':"")+'</td><td>'+esc(t.item)+'</td><td class="n">'+inr(l?t.amt:t.proceeds)+'</td><td class="n">'+(l||t.cost===""?"-":inr(t.cost))+'</td><td class="n '+(!l&&t.cost!==""&&num(t.proceeds)-num(t.cost)<0?"down":"up")+'">'+(l||t.cost===""?"-":inr(num(t.proceeds)-num(t.cost)))+'</td><td>'+(l?"-":b=="none"?"No capital gains tax":b=="?"?'<span class="down">needs buy date and cost</span>':BUCK[b]+", "+BRATE[b])+'</td><td><button class="btn link" data-dr="tx" data-i="'+i+'">Edit</button><button class="btn link danger" data-del="tx|'+i+'">Delete</button></td></tr>'}).join(""),
+  return'<tr><td>'+esc(t.date)+'</td><td>'+esc(t.kind)+(t.taxOnly?' <span class="pill">tax only</span>':"")+(t.closed?' <span class="pill">closed</span>':"")+'</td><td>'+esc(t.item)+'</td><td class="n">'+inr(l?t.amt:t.proceeds)+'</td><td class="n">'+(l||t.cost===""?"-":inr(t.cost))+'</td><td class="n '+(!l&&t.cost!==""&&num(t.proceeds)-num(t.cost)<0?"down":"up")+'">'+(l||t.cost===""?"-":inr(num(t.proceeds)-num(t.cost)))+'</td><td>'+(l?"-":b=="none"?"No capital gains tax":b=="?"?'<span class="down">needs buy date and cost</span>':BUCK[b]+", "+BRATE[b]+(t.force?' <span class="pill">set by you</span>':""))+'</td><td><button class="btn link" data-dr="tx" data-i="'+i+'">Edit</button><button class="btn link danger" data-del="tx|'+i+'">Delete</button></td></tr>'}).join(""),
   "Editing or deleting an entry changes the record and the tax only. It does not put the holding back.")}
 
 function cash(){var t=totals();
@@ -255,8 +257,6 @@ function taxPage(){
 
 function data(){
  var h='<h1>Data</h1><p class="lede">Bring figures in from a statement, and keep a copy of everything you have entered. Files are read inside this browser and are not sent anywhere.</p>';
- h+='<h2>Consolidated account statement (CAS)</h2><div class="panel" style="padding:16px"><div class="two"><div><label for="casf">The PDF emailed to you, not a scan</label><input type="file" id="casf" accept=".pdf"></div><div><label for="caspw">Key for the file, if it asks for one</label><input type="text" id="caspw" class="masked" autocomplete="off" spellcheck="false" inputmode="text"></div></div><div class="acts"><button class="btn" data-cas="read">Read statement</button></div>'+(casName?'<p class="note">Chosen: '+esc(casName)+'</p>':"")+'</div>';
- h+=casReview();
  h+='<h2>Broker or spreadsheet file</h2><div class="panel" style="padding:16px"><label for="shf">A holdings file from your broker (.csv, .xlsx)</label><input type="file" id="shf" accept=".csv,.xlsx,.xls"><p class="note">It looks for columns named like instrument or symbol, quantity, average price and current value. Anything it cannot match is left for you to check.</p></div>';
  h+=sheetReview();
  h+='<h2>Detailed CAS, with every transaction</h2><div class="panel" style="padding:16px"><p class="note" style="margin-top:0">The statement from CAMS or KFintech that lists each purchase and redemption, not the monthly summary. It sets your units, cost and value from the statement, records redemptions for tax, and marks funds you have exited. Nothing is applied until you press the button.</p><div class="two"><div><label for="dcf">Detailed CAS PDF</label><input type="file" id="dcf" accept=".pdf">'+(dcName?'<span class="note">Using: '+esc(dcName)+'</span>':'')+'</div><div><label for="dcpw">Key for the file, if it asks</label><input type="text" id="dcpw" class="masked" autocomplete="off" spellcheck="false"></div></div><div class="acts"><button class="btn" data-dcas="read">Read it</button></div></div>'+dcReview();
@@ -269,70 +269,6 @@ function data(){
    'Funds marked "matched by ISIN" are exact. Anything marked "matched by name" is a guess worth checking: add that fund\'s ISIN to watchlist.json to make it exact.')}
  h+='<h2>Backup</h2><div class="panel" style="padding:16px"><p class="note">Clearing your browser data erases everything here. Copy this text somewhere safe, and paste it back to restore.</p><textarea id="bk" rows="6">'+esc(JSON.stringify(D))+'</textarea><div class="acts"><button class="btn ghost" data-restore="1">Restore from the text above</button><button class="btn ghost danger" data-wipe="1">Erase everything</button></div></div>';
  return h}
-
-/* ---------- CAS reading ---------- */
-var casName="",cas=null,casFile=null;
-function parseCAS(pages){
- var L=[],all=[];
- pages.forEach(function(it,p){it.forEach(function(x){if(x.s.trim()==="")return;all.push({s:x.s,x:x.x,r:x.x+x.w,y:p*10000-x.y})})});
- all.sort(function(a,b){return a.y-b.y||a.x-b.x});
- all.forEach(function(t){var l=L[L.length-1];if(l&&Math.abs(t.y-l.y)<3.5)l.it.push(t);else L.push({y:t.y,it:[t]})});
- L.forEach(function(l){l.it.sort(function(a,b){return a.x-b.x});var s="";l.it.forEach(function(t,i){s+=(i&&t.x-l.it[i-1].r>1?" ":"")+t.s});l.t=s});
- var ISIN=/\bIN[EF][0-9A-Z]{8}[0-9]/,DATE=/\b\d{2}-(\d{2}|[A-Za-z]{3})-\d{4}\b/,NUM=/^-?[\d,]+(\.\d+)?$/,FOL=/\b\d{5,}\s?\/\s?\d+\b/;
- var out=[],dp="",stated=null,full=L.map(function(l){return l.t}).join("\n");
- var m=full.match(/Total Portfolio Value[^0-9]{0,40}([\d,]+\.\d{2})/i);if(m)stated=parseFloat(m[1].replace(/,/g,""));
- function nums(s){return s.split(/\s+/).filter(function(w){return NUM.test(w)}).map(function(w){return parseFloat(w.replace(/,/g,""))})}
- var AN=[];L.forEach(function(l){if(ISIN.test(l.t)&&!DATE.test(l.t))AN.push(l.y)});
- function band(i,xl,xr){var y=L[i].y,lo=y-30,hi=y+30,t=[];
-  AN.forEach(function(a){if(a<y-.5&&(a+y)/2>lo)lo=(a+y)/2;if(a>y+.5&&(a+y)/2<hi)hi=(a+y)/2});
-  for(var k=0;k<L.length;k++){if(L[k].y<=lo||L[k].y>hi)continue;L[k].it.forEach(function(z){if(z.x>=xl&&z.r<=xr+1&&!ISIN.test(z.s))t.push(z)})}
-  t.sort(function(a,b){return Math.round(a.y/3)-Math.round(b.y/3)||a.x-b.x});return t.map(function(z){return z.s}).join(" ").replace(/\s+/g," ").trim()}
- function nice(n){var p=n.split("#");if(p.length>1){var t=p[1].trim();n=(!t||/^(NEW|EQ)/i.test(t))?p[0]:t}
-  n=n.replace(/\s*[-#]?\s*(NEW\s+)?EQ(UITY)?\b.*$/i,"").replace(/^[A-Z]{2,6}\s-\s/,"").trim();
-  return n.toLowerCase().replace(/\b[a-z]/g,function(c){return c.toUpperCase()}).replace(/\bLtd\b/,"").trim()}
- L.forEach(function(l,i){
-  var d=l.t.match(/DP Name\s*:\s*(.+?)(\s+BO ID|$)/);if(d)dp=d[1].replace(/\s*(PRIVATE|PVT)?\s*(LIMITED|LTD)\s*$/i,"").trim();
-  var im=l.t.match(ISIN);if(!im||DATE.test(l.t))return;
-  var isin=im[0],rest=l.t.slice(l.t.indexOf(isin)+isin.length),n=nums(rest),fol=rest.match(FOL),it=l.it,first=null,left=1e9,isr=0;
-  for(var k=0;k<it.length;k++){if(it[k].s.indexOf(isin)>-1){left=it[k].x;isr=it[k].r;
-   for(var j=k+1;j<it.length;j++){if(NUM.test(it[j].s.trim().replace(/\s/g,""))&&!FOL.test(it[j].s)){first=it[j].x;break}}break}}
-  if(fol&&n.length>=4){var nm=band(i,0,left).replace(/^[A-Z]{2,6}\s-\s*/,"").replace(/\s+/g," ")||isin;
-   out.push({name:nm,cat:"Mutual fund",plat:"Folio "+fol[0].replace(/\s/g,""),qty:n[0],invested:n[2],value:n[3],chk:Math.abs(n[0]*n[1]-n[3])<=Math.max(2,n[3]*.01)});return}
-  if(!fol&&n.length>=3&&first!==null){var q=n[0],pr=n[n.length-2],v=n[n.length-1],nm2=nice(band(i,isr-1,first))||isin,
-   cat=/^INF/.test(isin)?(/ETF|BHARAT 22/i.test(l.t+nm2)?"ETF":"Mutual fund"):"Stock";
-   out.push({name:nm2,cat:cat,plat:dp,qty:q,invested:"",value:v,chk:Math.abs(q*pr-v)<=Math.max(2,v*.01)})}});
- var nv=0,nu=0;
- L.forEach(function(l,i){if(DATE.test(l.t))return;var w=l.t.split(/\s+/).filter(function(x){return /^\d[\d,]*\.\d{4}$/.test(x)});if(w.length!=2)return;
-  var nb=band(i,0,1e5);if(/SCHEME/.test(nb)&&/TIER/.test(nb)){nv+=parseFloat(w[0].replace(/,/g,""))*parseFloat(w[1].replace(/,/g,""));nu++}});
- if(nu){var contrib="";
-  for(var i=0;i<L.length;i++){if(/NPS Valuation/i.test(L[i].t)||/Total\s*Contribution/i.test(L[i].t)){
-   for(var j=i;j<Math.min(i+4,L.length);j++){var z=nums(L[j].t);if(z.length>=4){contrib=z[1];break}}if(contrib!=="")break}}
-  out.push({name:"NPS Tier 1",cat:"NPS",plat:"NPS",qty:"",invested:contrib,value:Math.round(nv*100)/100,chk:true})}
- return{rows:out,parsed:out.reduce(function(a,r){return a+r.value},0),stated:stated}}
-function readCas(){var pw=val("caspw"),f=casFile;err="";ok="";
- if(!f){err="Choose the CAS PDF first.";render();return}
- if(!window.pdfjsLib){err="The PDF reader did not load. Check your connection and reload the page.";render();return}
- pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
- f.arrayBuffer().then(function(buf){return pdfjsLib.getDocument({data:new Uint8Array(buf),password:pw}).promise}).then(function(doc){
-  var pages=[],chain=Promise.resolve();
-  for(var i=1;i<=doc.numPages;i++)(function(n){chain=chain.then(function(){return doc.getPage(n)}).then(function(p){return p.getTextContent()}).then(function(tc){
-   pages.push(tc.items.map(function(t){return{s:t.str,x:t.transform[4],y:t.transform[5],w:t.width}}))})})(i);
-  return chain.then(function(){return pages})}).then(function(pages){
-  cas=parseCAS(pages);if(!cas.rows.length)err="The file opened but no holdings were found. It may be a picture-only PDF, which cannot be read.";render()})
- .catch(function(e){cas=null;err=(e&&e.name=="PasswordException")?(e.code==2?"That password is not right. Type it again and press Read statement.":"This file needs a password. Type it above and press Read statement."):"Could not open this file.";render()})}
-function casReview(){if(!cas||!cas.rows.length)return"";
- var match=cas.stated&&Math.abs(cas.parsed-cas.stated)<=Math.max(5,cas.parsed*.001);
- var h='<div class="panel" style="margin-top:12px;padding:16px"><p class="'+(cas.stated?(match?"ok":"err"):"note")+'" style="margin-top:0">Found '+cas.rows.length+' holdings worth '+inr(cas.parsed)+(cas.stated?(match?", which matches the statement total.":". The statement says "+inr(cas.stated)+", so something is missing or misread. Compare the rows below before adding."):". The statement total could not be found, so check the rows by eye.")+'</p><div class="tw"><table><tr><th>Add</th><th>Name</th><th>Type</th><th>Fund type</th><th class="n">Units</th><th class="n">Put in</th><th class="n">Value</th><th>Check</th></tr>';
- cas.rows.forEach(function(r,i){var sub=(r.cat=="Mutual fund"||r.cat=="ETF")?guessSub(r.name):"-";
-  h+='<tr><td><input type="checkbox" id="k'+i+'" checked style="width:auto"></td><td><input id="n'+i+'" value="'+esc(r.name)+'"></td><td><select id="c'+i+'">'+CATS.map(function(o){return'<option'+(o==r.cat?" selected":"")+'>'+o+'</option>'}).join("")+'</select></td><td><select id="s'+i+'">'+SUBS.map(function(o){return'<option'+(o==sub?" selected":"")+'>'+o+'</option>'}).join("")+'</select></td><td class="n">'+(r.qty===""?"-":r.qty)+'</td><td class="n">'+(r.invested===""?"-":inr(r.invested))+'</td><td class="n">'+inr(r.value)+'</td><td>'+(r.chk?"ok":'<span class="down">numbers do not add up</span>')+'</td></tr>'});
- h+='</table></div><div class="two" style="margin-top:10px"><div><label for="casmode">What to do with them</label><select id="casmode"><option value="add">Add to what I already have</option><option value="rep">Replace all my holdings</option></select></div><div><label for="casskip">Shares and ETFs</label><select id="casskip"><option value="y">Include</option><option value="n">Leave out</option></select></div></div><div class="acts"><button class="btn" data-cas="add">Add the ticked rows</button></div><p class="note">A CAS has no buy prices for shares and demat funds, so their cost stays blank. Adding the same statement twice creates duplicates, so use Replace, or leave shares out if a broker file already covers them.</p></div>';
- return h}
-function casAdd(){var rep=val("casmode")=="rep",skip=val("casskip")=="n",add=[];
- cas.rows.forEach(function(r,i){var e=document.getElementById("k"+i);if(!e||!e.checked)return;
-  var c=val("c"+i);if(skip&&(c=="Stock"||c=="ETF"))return;
-  add.push({name:val("n"+i)||r.name,cat:c,sub:val("s"+i),plat:r.plat||"",mkt:"India",qty:r.qty,invested:r.invested,value:r.value,mc:"",day:"",rate:"",status:"Active",mat:"",note:"From CAS"})});
- if(rep)D.inv=add;else D.inv=D.inv.concat(add);
- save();cas=null;casFile=null;casName="";ok="Added "+add.length+" holdings. See the Portfolio page.";render()}
 
 /* ---------- broker sheet ---------- */
 var sheet=null;
@@ -447,7 +383,10 @@ function txDrawer(){var e=dr.i>=0?D.tx[dr.i]:null,kind=dr.kind||(e?e.kind:KINDS[
   '<p class="note">Choose the second one when the units you entered came from a statement dated after the sale, such as a CAS. Otherwise the sale is taken off twice.</p>'+
   '<label for="t_units">Units or shares, if you know them</label><input type="number" step="any" id="t_units" value="'+esc(e?e.units:"")+'">'+
   '<label for="t_cost">What that part cost you</label><input type="number" step="any" id="t_cost" value="'+esc(e?e.cost:"")+'">'+
-  '<label for="t_buy">Bought on, oldest units first</label><input type="date" id="t_buy" value="'+esc(e?e.buy:"")+'">';
+  '<label for="t_buy">Bought on, oldest units first</label><input type="date" id="t_buy" value="'+esc(e?e.buy:"")+'">'+
+  '<label for="t_force">Tax treatment</label><select id="t_force">'+
+   [["","Work it out from the dates"],["short","Short term"],["long","Long term"]].map(function(o){return'<option value="'+o[0]+'"'+(((e&&e.force)||"")==o[0]?" selected":"")+'>'+o[1]+'</option>'}).join("")+'</select>'+
+  '<p class="note" style="margin-top:6px">Set this when one sale covers many SIP instalments and no single purchase date fits. Your capital gains statement from CAMS or KFintech says which part is long term and which is short; record a split sale as two entries.</p>';
  h+='<label for="t_note">Note</label><input id="t_note" value="'+esc(e?e.note:"")+'">';
  if(!loan)h+='<p class="note" style="margin-top:12px">Leave the cost blank and it is worked out from what you put in. For shares bought before 31 January 2018, use the higher of your cost and the price on that date. Fund units are sold oldest first.</p>';
  if(e)h+='<p class="note">Editing changes this record and the tax only. Your holding is not changed back.</p>';
@@ -465,21 +404,21 @@ function saveTx(){var e=dr.i>=0?D.tx[dr.i]:null,kind=val("t_kind")||dr.kind||KIN
  if(!e&&isGone&&!val("t_name")){err="Give the name of what you sold.";render();return}
  if(!date||!(amt>0)){err="Enter the date and an amount above zero.";render();return}
  err="";
- if(e){e.date=date;e.note=val("t_note");if(loan)e.amt=amt;else{e.proceeds=amt;e.units=val("t_units");e.cost=val("t_cost")===""?"":num(val("t_cost"));e.buy=val("t_buy")}save();dr=null;render();return}
+ if(e){e.date=date;e.note=val("t_note");if(loan)e.amt=amt;else{e.proceeds=amt;e.units=val("t_units");e.cost=val("t_cost")===""?"":num(val("t_cost"));e.buy=val("t_buy");e.force=val("t_force")}save();dr=null;render();return}
  var j=+val("t_item"),rd=function(x,n){return Math.round(x*n)/n};
- if(isGone){D.tx.push({kind:kind,item:val("t_name"),plat:"",cat:val("t_cat"),sub:val("t_sub"),mkt:val("t_mkt"),date:date,units:val("t_units"),proceeds:amt,cost:val("t_cost")===""?"":num(val("t_cost")),buy:val("t_buy"),note:val("t_note"),closed:true});
+ if(isGone){D.tx.push({kind:kind,item:val("t_name"),plat:"",cat:val("t_cat"),sub:val("t_sub"),mkt:val("t_mkt"),date:date,units:val("t_units"),proceeds:amt,cost:val("t_cost")===""?"":num(val("t_cost")),buy:val("t_buy"),force:val("t_force"),note:val("t_note"),closed:true});
   save();dr=null;render();return}
  if(loan){var l=D.lia[j];l.out=kind==KINDS[5]?Math.max(0,num(l.out)-amt):num(l.out)+amt;
   if(num(l.out)===0&&kind==KINDS[5])l.status="Closed";
   D.tx.push({kind:kind,item:l.name,date:date,amt:amt,note:val("t_note")})}
  else if(val("t_apply")=="no"){var r0=D.inv[j];
   D.tx.push({kind:kind,item:r0.name,plat:r0.plat,cat:r0.cat,sub:r0.sub,mkt:r0.mkt,date:date,units:val("t_units"),
-   proceeds:amt,cost:val("t_cost")===""?"":num(val("t_cost")),buy:val("t_buy"),note:val("t_note"),taxOnly:true});
+   proceeds:amt,cost:val("t_cost")===""?"":num(val("t_cost")),buy:val("t_buy"),force:val("t_force"),note:val("t_note"),taxOnly:true});
   save();dr=null;render();return}
  else{var r=D.inv[j],u=num(val("t_units")),
   frac=(u>0&&num(r.qty)>0)?Math.min(1,u/num(r.qty)):(num(r.value)>0?Math.min(1,amt/num(r.value)):1),
   cost=val("t_cost")!==""?num(val("t_cost")):((r.invested!==""&&r.invested!=null)?rd(num(r.invested)*frac,100):"");
-  D.tx.push({kind:kind,item:r.name,plat:r.plat,cat:r.cat,sub:r.sub,mkt:r.mkt,date:date,units:val("t_units"),proceeds:amt,cost:cost,buy:val("t_buy"),note:val("t_note")});
+  D.tx.push({kind:kind,item:r.name,plat:r.plat,cat:r.cat,sub:r.sub,mkt:r.mkt,date:date,units:val("t_units"),proceeds:amt,cost:cost,buy:val("t_buy"),force:val("t_force"),note:val("t_note")});
   if(r.qty!=="")r.qty=rd(num(r.qty)*(1-frac),1e4);
   if(r.invested!==""&&r.invested!=null)r.invested=rd(num(r.invested)*(1-frac),100);
   r.value=rd(num(r.value)*(1-frac),100);
@@ -1187,8 +1126,6 @@ document.addEventListener("click",function(ev){var t=ev.target,g=function(a){ret
  if(g("data-del")){var p=g("data-del").split("|");D[p[0]].splice(+p[1],1);save();render();return}
  if(g("data-dcas")=="read"){readDetailed();return}
  if(g("data-dcas")=="apply"){dcApply();return}
- if(g("data-cas")=="read"){readCas();return}
- if(g("data-cas")=="add"){casAdd();return}
  if(g("data-sheet")=="add"){sheetAdd();return}
  if(g("data-fill")){var m={sal:0,hp:0,int:0};
   D.inc.forEach(function(r){var y=num(r.amt)*FAC[r.freq]*12;if(r.type=="Salary")m.sal+=y;else if(r.type=="Rent received")m.hp+=y;else if(r.type=="Interest or dividend")m.int+=y});
@@ -1218,7 +1155,6 @@ document.addEventListener("change",function(e){var t=e.target;
  if(/^p_/.test(t.id)){D.plan[t.id.slice(2)]=num(t.value);save();render();return}
  if(/^tp[0-9]+$/.test(t.id)){var L3=(D.plan.trips||TRIPS).map(function(x){return{name:x.name,per:x.per,note:x.note}});
   L3[+t.id.slice(2)].per=num(t.value);D.plan.trips=L3;save();render();return}
- if(t.id=="casf"&&t.files[0]){casFile=t.files[0];casName=casFile.name;cas=null;err="";render();return}
  if(t.id=="dcf"&&t.files[0]){dcFile=t.files[0];dcName=dcFile.name;DC=null;err="";render();return}
  if(t.id=="shf"&&t.files[0]){readSheet(t.files[0]);return}});
 render();
