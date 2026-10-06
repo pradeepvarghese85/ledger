@@ -18,6 +18,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, "data")
 WATCH = os.path.join(DATA, "watchlist.json")
 OUT = os.path.join(DATA, "prices.json")
+NEWS = os.path.join(DATA, "news.json")
 CACHE = os.path.join(DATA, "fund-codes.json")
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/129.0 Safari/537.36")
@@ -229,6 +230,67 @@ def past_closes(code):
     return out, res.get("meta") or {}
 
 
+MARKET_TOPICS = [
+    ("India", "Indian stock market Nifty Sensex"),
+    ("India", "RBI monetary policy inflation India"),
+    ("US", "US stock market Federal Reserve"),
+    ("World", "global markets oil rupee dollar"),
+]
+
+
+def headlines(query, limit=4):
+    """Headlines from Google News. Titles and links only, nothing more."""
+    url = ("https://news.google.com/rss/search?q=" + urllib.parse.quote(query + " when:10d")
+           + "&hl=en-IN&gl=IN&ceid=IN:en")
+    xml = get(url, tries=2, as_json=False)
+    if not xml or "<item" not in xml:
+        return []
+    out = []
+    for block in xml.split("<item>")[1:limit + 1]:
+        def field(tag):
+            a = block.find("<%s>" % tag)
+            b = block.find("</%s>" % tag)
+            if a < 0 or b < 0:
+                return ""
+            t = block[a + len(tag) + 2:b]
+            t = t.replace("<![CDATA[", "").replace("]]>", "")
+            for k, v in (("&amp;", "&"), ("&quot;", '"'), ("&#39;", "'"), ("&lt;", "<"), ("&gt;", ">")):
+                t = t.replace(k, v)
+            return t.strip()
+        title, link = field("title"), field("link")
+        if not title:
+            continue
+        src = field("source") or ""
+        if " - " in title and not src:                 # Google appends the source
+            title, src = title.rsplit(" - ", 1)
+        out.append({"title": title[:180], "link": link, "source": src[:60], "when": field("pubDate")[:16]})
+    return out
+
+
+def news(w):
+    """One file of headlines: the markets, then each thing you hold."""
+    data = {"updated": datetime.now(IST).strftime("%d-%m-%Y %H:%M IST"), "market": [], "items": {}}
+    print("News")
+    for scope, q in MARKET_TOPICS:
+        for a in headlines(q, 3):
+            a["scope"] = scope
+            data["market"].append(a)
+    print("   market: %d headlines" % len(data["market"]))
+    hit = 0
+    for group in ("stocks", "funds"):
+        for row in w.get(group, []):
+            name = row.get("name") or ""
+            if not name:
+                continue
+            arts = headlines(name, 3)
+            if arts:
+                data["items"][row["code"]] = {"name": name, "articles": arts}
+                hit += 1
+            time.sleep(0.4)
+    print("   holdings with news: %d" % hit)
+    return data
+
+
 def main():
     w = load(WATCH, {})
     old = load(OUT, {"prices": {}})
@@ -334,6 +396,17 @@ def main():
         json.dump(out, f, indent=1, sort_keys=True)
     with open(CACHE, "w") as f:
         json.dump(codes, f, indent=1, sort_keys=True)
+
+    try:
+        n = news(w)
+        if n["market"] or n["items"]:
+            with open(NEWS, "w") as f:
+                json.dump(n, f, indent=1, sort_keys=True)
+        else:
+            print("   nothing came back, so the old news file is kept")
+    except Exception:
+        print("   news step failed, the rest of the run is unaffected")
+        traceback.print_exc()
     print("\nWrote %d prices. %d could not be fetched." % (len(prices), len(stale)))
     if not prices:
         print("\nNOTHING was fetched. Both sources failed, or watchlist.json did not load.")

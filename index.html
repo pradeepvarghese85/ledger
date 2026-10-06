@@ -38,6 +38,8 @@ h2{font:500 17px var(--serif);margin:30px 0 10px}
 .strip b{font:500 22px var(--serif);display:block}
 .strip b.sm{font-size:18px}
 .up{color:var(--up)}.down{color:var(--down)}
+a{color:var(--deep)}a:hover{text-decoration:none}
+ul{margin:0}
 .panel{background:var(--surface);border:1px solid var(--rule);border-radius:10px;box-shadow:var(--sh)}
 .alloc{padding:4px 0}
 .alloc .g{display:flex;justify-content:space-between;align-items:baseline;padding:11px 16px 5px;gap:10px}
@@ -783,6 +785,48 @@ function signalsPage(){
  h+='<p class="note">What these rules cannot see: what a company earns, what a fund now owns, why a price moved, or your own reason for buying. Nor can they judge tax properly without a purchase date, which is why adding buy dates to your sales is worth the trouble.</p>';
  return h}
 
+
+/* ---------- news ---------- */
+var NEWS=null,NEWSerr="";
+function loadNews(){
+ if(typeof fetch!="function")return;
+ fetch("data/news.json",{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.json()})
+ .then(function(j){NEWS=j;render()})
+ .catch(function(){NEWSerr="No news file yet. It appears after the next nightly run.";render()})}
+function art(a){
+ return'<li style="margin:0 0 8px"><a href="'+esc(a.link||"#")+'" target="_blank" rel="noopener noreferrer">'+esc(a.title||"")+'</a>'+
+  '<br><span class="note">'+esc(a.source||"")+(a.when?' · '+esc(a.when):"")+'</span></li>'}
+function newsPage(){
+ var h='<h1>News</h1><p class="lede">Headlines from the past ten days for the markets you are in and the things you hold. Fetched by the nightly job, so this is a digest rather than a live feed.</p>';
+ if(NEWSerr)return h+'<div class="flag">'+esc(NEWSerr)+'</div>';
+ if(!NEWS)return h+'<p class="note">Loading…</p>';
+ h+='<p class="note">Collected '+esc(NEWS.updated||"")+'.</p>';
+ var scopes={};(NEWS.market||[]).forEach(function(a){(scopes[a.scope||"Markets"]=scopes[a.scope||"Markets"]||[]).push(a)});
+ var order=Object.keys(scopes);
+ if(order.length){h+='<h2>The markets</h2><div class="panel" style="padding:14px 18px">';
+  order.forEach(function(k){h+='<div style="margin-bottom:10px"><div class="pill">'+esc(k)+'</div><ul style="margin:8px 0 0;padding-left:18px">'+scopes[k].map(art).join("")+'</ul></div>'});
+  h+='</div>'}
+ var mine=[],seen={};
+ D.inv.forEach(function(r){if(!r.code||seen[r.code]||num(r.value)<=0)return;
+  var n=(NEWS.items||{})[r.code];if(!n||!n.articles||!n.articles.length)return;
+  seen[r.code]=1;mine.push({r:r,n:n})});
+ mine.sort(function(a,b){return num(b.r.value)-num(a.r.value)});
+ h+='<h2>Your holdings</h2>';
+ if(!mine.length)h+='<p class="note">Nothing came back for anything you hold. Smaller companies and most funds rarely make the news.</p>';
+ else{
+  var tot=D.inv.reduce(function(a,r){return a+num(r.value)},0);
+  mine.forEach(function(x){
+   h+='<div class="panel" style="padding:14px 18px;margin:10px 0"><div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:baseline">'+
+    '<div style="font:500 16px var(--serif)">'+esc(x.r.name)+'</div><span class="note">'+inr(x.r.value)+(tot?' · '+(num(x.r.value)/tot*100).toFixed(1)+'%':"")+'</span></div>'+
+    '<ul style="margin:8px 0 0;padding-left:18px">'+x.n.articles.map(art).join("")+'</ul></div>'})}
+ h+='<h2>What to do with this</h2><div class="panel" style="padding:14px 18px"><p class="note" style="margin:0 0 8px">Headlines are not a reason to trade. Most are already in the price by the time you read them, and a single story rarely changes what a holding is worth over years. Three questions worth asking of any headline that concerns you:</p>'+
+  '<ul class="note" style="margin:0;padding-left:18px"><li>Does this change what the business or fund will earn over several years, or only this quarter?</li>'+
+  '<li>Would you buy this holding today at today\'s price, knowing this?</li>'+
+  '<li>If you sold on this news, where would the money go, and what would that cost you in tax?</li></ul>'+
+  '<p class="note" style="margin:8px 0 0">For a view on a particular story, paste the headline into a chat with me along with the holding. I can look it up and give you both sides, which this page deliberately does not try to do on its own.</p></div>';
+ h+='<p class="note">Headlines and links come from Google News. Opening one takes you to the publisher.</p>';
+ return h}
+
 /* ---------- check-up ---------- */
 function ageDays(d){if(!d)return null;var m=String(d).match(/(\d{2})-(\d{2}|[A-Za-z]{3})-(\d{4})/);if(!m)return null;
  var mo={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11}[String(m[2]).toLowerCase().slice(0,3)];
@@ -844,7 +888,7 @@ function checkup(){var r=qc();
  return h}
 
 /* ---------- shell ---------- */
-var PAGES=[["dash","Dashboard",dash],["port","Portfolio",portfolio],["sig","Sell or hold",signalsPage],["act","Sales and withdrawals",activity],["cash","Income and bills",cash],["sip","SIP calendar",sipPage],["tax","Tax",taxPage],["check","Check-up",checkup],["data","Data",data]];
+var PAGES=[["dash","Dashboard",dash],["port","Portfolio",portfolio],["sig","Sell or hold",signalsPage],["act","Sales and withdrawals",activity],["cash","Income and bills",cash],["sip","SIP calendar",sipPage],["news","News",newsPage],["tax","Tax",taxPage],["check","Check-up",checkup],["data","Data",data]];
 function render(){
  if(PXm)applyPrices();
  document.getElementById("nav").innerHTML=PAGES.map(function(p){return'<a tabindex="0" class="'+(page==p[0]?"on":"")+'" data-go="'+p[0]+'">'+p[1]+'</a>'}).join("");
@@ -896,4 +940,5 @@ document.addEventListener("change",function(e){var t=e.target;
 render();
 loadPrices();
 loadHolidays();
+loadNews();
 </script></body></html>
