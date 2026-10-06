@@ -1,10 +1,18 @@
-name: Update prices
+name: Update prices and news
 
 on:
   schedule:
-    # 18:30 UTC = midnight IST, after AMFI publishes the day's NAVs
-    - cron: "30 18 * * 1-5"
-  workflow_dispatch:        # lets you press "Run workflow" yourself
+    # all times are UTC. IST is UTC + 5:30
+    - cron: "30 18 * * 1-5"   # 00:00 IST, full run: prices, history and news
+    - cron: "45 3 * * 1-5"    # 09:15 IST, market open, news only
+    - cron: "0 7 * * 1-5"     # 12:30 IST, midday, news only
+  workflow_dispatch:
+    inputs:
+      what:
+        description: "What to fetch"
+        type: choice
+        default: everything
+        options: [everything, news]
 
 permissions:
   contents: write
@@ -29,10 +37,22 @@ jobs:
           ls -la data || echo "THERE IS NO data FOLDER. Create data/watchlist.json in the repository."
           python -c "import json;d=json.load(open('data/watchlist.json'));print('watchlist loaded:',len(d.get('stocks',[])),'stocks,',len(d.get('funds',[])),'funds')"
 
-      - name: Fetch prices
-        run: python update.py
+      - name: Decide what this run does
+        id: mode
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ] && [ "${{ github.event.schedule }}" != "30 18 * * 1-5" ]; then
+            echo "args=news" >> "$GITHUB_OUTPUT"
+          elif [ "${{ github.event.inputs.what }}" = "news" ]; then
+            echo "args=news" >> "$GITHUB_OUTPUT"
+          else
+            echo "args=" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Running with: '${{ steps.mode.outputs.args }}'"
 
-      - name: Save the new prices
+      - name: Fetch
+        run: python update.py ${{ steps.mode.outputs.args }}
+
+      - name: Save what changed
         run: |
           git config user.name "price bot"
           git config user.email "actions@github.com"
@@ -40,7 +60,7 @@ jobs:
           if git diff --staged --quiet; then
             echo "Nothing changed, so nothing to save."
           else
-            git commit -m "Prices $(date -u +'%Y-%m-%d')"
+            git commit -m "Update $(date -u +'%Y-%m-%d %H:%M') UTC"
             git pull --rebase origin "${GITHUB_REF_NAME}" || true
             git push origin "HEAD:${GITHUB_REF_NAME}"
             echo "Saved."
