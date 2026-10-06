@@ -446,6 +446,36 @@ def news(w, holdings=True):
     return data
 
 
+ALERTS = os.path.join(DATA, "alerts.json")
+
+
+def alerts(prices, old_prices, sc):
+    """Short list of things worth knowing today. Written to a file and, if the
+    workflow is set up for it, raised as a GitHub issue so it reaches your email."""
+    out = []
+    for code, p in prices.items():
+        if p.get("kind") == "fx":
+            continue
+        was = (old_prices.get(code) or {}).get("price")
+        now = p.get("price")
+        if was and now:
+            move = (now / was - 1) * 100
+            if abs(move) >= 7:
+                out.append("%s moved %+.1f%% since the last run, to %.2f" % (p.get("name", code), move, now))
+        iso = to_iso(p.get("date"))
+        if iso:
+            age = (datetime.now(IST).date() - datetime.strptime(iso, "%Y-%m-%d").date()).days
+            if age > 6:
+                out.append("%s has had no new price for %d days" % (p.get("name", code), age))
+    for code, row in (sc or {}).get("stocks", {}).items():
+        off, y1 = row.get("offHigh"), row.get("y1")
+        if off is not None and off >= -0.5 and y1 and y1 > 0:
+            out.append("%s is at a 12-month high" % row.get("name", code))
+        if off is not None and off <= -35:
+            out.append("%s is %.0f%% below its 12-month high" % (row.get("name", code), -off))
+    return out[:25]
+
+
 def main(mode=""):
     """everything = the full run, including the screen. live = news only.
     close = news and prices, after the Indian close. screen = a quick screen refresh,
@@ -573,6 +603,18 @@ def main(mode=""):
         "notes": notes,
         "prices": prices,
     }
+    try:
+        a = alerts(prices, oldp, load(SCREEN, {}))
+        with open(ALERTS, "w") as f:
+            json.dump({"updated": datetime.now(IST).strftime("%d-%m-%Y %H:%M IST"), "items": a}, f,
+                      sort_keys=True, separators=(",", ":"))
+        print("Alerts: %d" % len(a))
+        for x in a[:10]:
+            print("   " + x)
+    except Exception:
+        print("   alerts step failed, the rest of the run is unaffected")
+        traceback.print_exc()
+
     os.makedirs(DATA, exist_ok=True)
     with open(OUT, "w") as f:
         json.dump(out, f, indent=1, sort_keys=True)

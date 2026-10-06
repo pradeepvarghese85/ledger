@@ -160,6 +160,14 @@ In the sale, set **Tax treatment** to Short term or Long term instead of leaving
 
 The **Tax** page has a year dropdown, so a redemption from last financial year goes under that year, not this one.
 
+### I want to write down why I own something
+
+Edit the holding. Three boxes at the bottom: **Why you own it**, **What would make you sell**, and **Review it on**. The first two show on the holding's card, and an overdue review is listed on the Check-up page. Nothing else uses them; they exist so that in a year you can judge the decision rather than the outcome.
+
+### I want to set my own limits
+
+On the **Sell or hold** page, under *Your own rules*: the most in any one holding, the most in any one group, and the least in cash. The page then names what is out of line and the smallest trade that fixes it.
+
 ### My SIP amount changed, or I paused one
 
 In the dashboard, not here. Portfolio, untick Combine, Edit the holding, then change the monthly amount, the day or the status.
@@ -225,6 +233,11 @@ Do this after any large change, and every few months otherwise.
 - **Share prices:** Yahoo Finance. Free and unofficial, so it can change without notice.
 - **News:** Google News, searching the industries in `data/themes.json`. Free.
 - **The Find ideas screen:** a year of daily prices for the names in `data/universe.json`, from Yahoo.
+- **The index comparison:** the Nifty 50 and Nifty 500, priced like any other symbol.
+
+## 8. Alerts
+
+The 03:00 and 16:15 runs write `data/alerts.json` and raise a **GitHub issue** listing anything notable: a holding that moved more than 7% since the last run, a price that has gone stale, a 12-month high, or something more than 35% below its high. GitHub emails you when an issue is raised, so you hear about it without opening the dashboard. Close the issue once you have read it. The same list appears at the top of the Dashboard.
 - **Exchange rates:** Yahoo, fetched every run, so US holdings convert to rupees.
 
 Nothing here is live. NAVs are published once a day, and share prices are the last close.
