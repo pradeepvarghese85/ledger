@@ -3,16 +3,17 @@ name: Update prices and news
 on:
   schedule:
     # all times are UTC. IST is UTC + 5:30
-    - cron: "30 18 * * 1-5"   # 00:00 IST, full run: prices, history and news
-    - cron: "45 3 * * 1-5"    # 09:15 IST, market open, news only
-    - cron: "0 7 * * 1-5"     # 12:30 IST, midday, news only
+    - cron: "30 21 * * 1-5"   # 03:00 IST, full run: NAVs, US close, the screen and news
+    - cron: "45 3 * * 1-5"    # 09:15 IST, market open: news and the screen
+    - cron: "0 7 * * 1-5"     # 12:30 IST, midday: news and the screen
+    - cron: "45 10 * * 1-5"   # 16:15 IST, after the Indian close: prices, news and the screen
   workflow_dispatch:
     inputs:
       what:
         description: "What to fetch"
         type: choice
         default: everything
-        options: [everything, news]
+        options: [everything, live, close, news, prices]
 
 permissions:
   contents: write
@@ -40,14 +41,14 @@ jobs:
       - name: Decide what this run does
         id: mode
         run: |
-          if [ "${{ github.event_name }}" = "schedule" ] && [ "${{ github.event.schedule }}" != "30 18 * * 1-5" ]; then
-            echo "args=news" >> "$GITHUB_OUTPUT"
-          elif [ "${{ github.event.inputs.what }}" = "news" ]; then
-            echo "args=news" >> "$GITHUB_OUTPUT"
-          else
-            echo "args=" >> "$GITHUB_OUTPUT"
-          fi
-          echo "Running with: '${{ steps.mode.outputs.args }}'"
+          case "${{ github.event_name }}:${{ github.event.schedule }}" in
+            schedule:"45 3 * * 1-5"|schedule:"0 7 * * 1-5") MODE=live ;;
+            schedule:"45 10 * * 1-5")                        MODE=close ;;
+            schedule:*)                                      MODE= ;;
+            *) MODE="${{ github.event.inputs.what }}"; [ "$MODE" = "everything" ] && MODE= ;;
+          esac
+          echo "args=$MODE" >> "$GITHUB_OUTPUT"
+          echo "This run does: ${MODE:-everything}"
 
       - name: Fetch
         run: python update.py ${{ steps.mode.outputs.args }}
