@@ -1,0 +1,36 @@
+{
+  "_comment": "What the news job searches for, besides your own holdings. Add, remove or reword freely; each theme is two searches, one broad and one aimed at smaller companies. Keep the list under about a dozen themes so a run stays quick.",
+  "market": [
+    { "name": "India", "query": "Indian stock market Nifty Sensex" },
+    { "name": "India", "query": "RBI monetary policy inflation India" },
+    { "name": "US", "query": "US stock market Federal Reserve" },
+    { "name": "World", "query": "global markets oil rupee dollar" }
+  ],
+  "themes": [
+    {
+      "name": "AI",
+      "query": "artificial intelligence India companies investment",
+      "small": "AI smallcap midcap stocks India orders"
+    },
+    {
+      "name": "Renewable energy",
+      "query": "India renewable energy solar wind capacity policy",
+      "small": "renewable energy smallcap India order book solar EPC"
+    },
+    {
+      "name": "Defence",
+      "query": "India defence manufacturing contracts indigenisation",
+      "small": "defence smallcap stocks India order wins"
+    },
+    {
+      "name": "Agriculture",
+      "query": "India agriculture monsoon crop prices agri inputs",
+      "small": "agri smallcap stocks India fertiliser seeds results"
+    },
+    {
+      "name": "Public infrastructure and railways",
+      "query": "India railways infrastructure capex orders highways",
+      "small": "railway infrastructure smallcap stocks India order wins"
+    }
+  ]
+}
