@@ -20,6 +20,8 @@ WATCH = os.path.join(DATA, "watchlist.json")
 OUT = os.path.join(DATA, "prices.json")
 NEWS = os.path.join(DATA, "news.json")
 THEMES = os.path.join(DATA, "themes.json")
+UNIVERSE = os.path.join(DATA, "universe.json")
+SCREEN = os.path.join(DATA, "screen.json")
 CACHE = os.path.join(DATA, "fund-codes.json")
 UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/129.0 Safari/537.36")
@@ -260,6 +262,75 @@ def headlines(query, limit=4):
     return out
 
 
+def one_year(code):
+    """A year of daily closes for one symbol."""
+    d = get("https://query1.finance.yahoo.com/v8/finance/chart/%s?interval=1d&range=1y"
+            % urllib.parse.quote(code))
+    res = (((d or {}).get("chart") or {}).get("result") or [{}])[0]
+    ts = res.get("timestamp") or []
+    closes = (((res.get("indicators") or {}).get("quote") or [{}])[0].get("close")) or []
+    series = [(datetime.fromtimestamp(t, IST).strftime("%Y-%m-%d"), closes[i])
+              for i, t in enumerate(ts) if i < len(closes) and closes[i]]
+    return series, res.get("meta") or {}
+
+
+def ret(series, days):
+    """Percentage change over roughly this many calendar days."""
+    if len(series) < 2:
+        return None
+    last_date, last = series[-1]
+    want = (datetime.strptime(last_date, "%Y-%m-%d") - timedelta(days=days)).strftime("%Y-%m-%d")
+    base = None
+    for d, v in series:
+        if d <= want:
+            base = v
+        else:
+            break
+    if not base:
+        return None
+    return round((last / base - 1) * 100, 1)
+
+
+def screen(w):
+    """Price-based measures for a list of companies, so the dashboard can sort and filter them."""
+    u = load(UNIVERSE, {})
+    rows = list(u.get("stocks", []))
+    have = set(r["code"] for r in rows)
+    for r in w.get("stocks", []):                     # always include what you hold
+        if r["code"] not in have:
+            rows.append({"code": r["code"], "name": r["name"], "theme": "What I hold"})
+    out, fails = {}, []
+    print("Screen (%d names)" % len(rows))
+    for r in rows:
+        try:
+            series, meta = one_year(r["code"])
+            if len(series) < 30:
+                fails.append(r["name"])
+                continue
+            closes = [v for _, v in series]
+            last = closes[-1]
+            hi, lo = max(closes), min(closes)
+            moves = [closes[i] / closes[i - 1] - 1 for i in range(1, len(closes)) if closes[i - 1]]
+            vol = (sum(m * m for m in moves) / len(moves)) ** 0.5 * (252 ** 0.5) * 100 if moves else None
+            out[r["code"]] = {
+                "name": r["name"], "theme": r.get("theme", ""),
+                "price": round(last, 2), "currency": meta.get("currency", ""),
+                "m1": ret(series, 30), "m3": ret(series, 92), "m6": ret(series, 183), "y1": ret(series, 365),
+                "high": round(hi, 2), "low": round(lo, 2),
+                "offHigh": round((last / hi - 1) * 100, 1) if hi else None,
+                "upFromLow": round((last / lo - 1) * 100, 1) if lo else None,
+                "vol": round(vol) if vol else None,
+                "date": series[-1][0],
+            }
+        except Exception:
+            fails.append(r.get("name", "?"))
+        time.sleep(0.2)
+    print("   measured %d, could not fetch %d" % (len(out), len(fails)))
+    if fails:
+        print("   missing: %s" % ", ".join(fails[:10]))
+    return {"updated": datetime.now(IST).strftime("%d-%m-%Y %H:%M IST"), "stocks": out, "missing": fails}
+
+
 def news(w, holdings=True):
     """One file of headlines: the markets, your themes, small-company angles, and your own holdings."""
     t = load(THEMES, {})
@@ -431,6 +502,15 @@ def main(news_only=False):
         json.dump(out, f, indent=1, sort_keys=True)
     with open(CACHE, "w") as f:
         json.dump(codes, f, indent=1, sort_keys=True)
+
+    try:
+        sc = screen(w)
+        if sc["stocks"]:
+            with open(SCREEN, "w") as f:
+                json.dump(sc, f, indent=1, sort_keys=True)
+    except Exception:
+        print("   screen step failed, the rest of the run is unaffected")
+        traceback.print_exc()
 
     try:
         n = news(w)

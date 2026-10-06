@@ -851,6 +851,71 @@ function newsFooter(){
   '<p class="note" style="margin:8px 0 0">Small companies move hardest on a theme and fall hardest when it cools, and a story about an order win says nothing about the price you would be paying. For a view on a particular story, paste it into a chat with me with the holding and I will look it up and give you both sides.</p></div>'+
   '<p class="note">Headlines and links come from Google News. Opening one takes you to the publisher.</p>'}
 
+
+/* ---------- screener ---------- */
+var SCR=null,SCRerr="",sF={theme:"All",metric:"y1",dir:"more",val:"",off:"Any",vol:"Any",own:"All",sort:"y1",q:""};
+function loadScreen(){
+ if(typeof fetch!="function")return;
+ fetch("data/screen.json",{cache:"no-store"}).then(function(r){if(!r.ok)throw 0;return r.json()})
+ .then(function(j){SCR=j;render()})
+ .catch(function(){SCRerr="No screen file yet. It is written by the midnight run.";render()})}
+var METRICS=[["m1","Last month"],["m3","Last three months"],["m6","Last six months"],["y1","Last year"],["vol","How much it jumps about"],["upFromLow","Up from its year low"]];
+var PRESETS=[
+ ["Strong year, near its high","A year of gains and trading close to its 52-week high. Momentum, with the risk that you are buying after the move.",{metric:"y1",dir:"more",val:"25",off:"Within 10%",sort:"y1"}],
+ ["Beaten down","A fifth or more below its 52-week high. Sometimes a bargain, often a warning.",{metric:"y1",dir:"less",val:"0",off:"More than 20% below",sort:"y1"}],
+ ["Quiet risers","Gains over a year without the wild swings. Dull is a compliment here.",{metric:"y1",dir:"more",val:"10",vol:"Calmer than 30%",sort:"y1"}],
+ ["Off the boil","Up over a year but down over three months. Worth asking what changed.",{metric:"m3",dir:"less",val:"-5",sort:"m3"}]];
+function fmtPct(v){return v==null?"-":'<span class="'+(v>=0?"up":"down")+'">'+(v>0?"+":"")+v.toFixed(1)+'%</span>'}
+function screenPage(){
+ var h='<h1>Find something to buy</h1><p class="lede">A screen over a list of companies you choose, using price behaviour over the past year. No typing of queries: pick from the boxes, or start with one of the ready-made screens.</p>';
+ if(SCRerr)return h+'<div class="flag">'+esc(SCRerr)+'</div>';
+ if(!SCR)return h+'<p class="note">Loading…</p>';
+ var S=SCR.stocks||{},codes=Object.keys(S),themes=[];
+ codes.forEach(function(c){var t=S[c].theme||"Other";if(themes.indexOf(t)<0)themes.push(t)});themes.sort();
+ var owned={};D.inv.forEach(function(r){if(r.code&&num(r.value)>0)owned[r.code]=r});
+ h+='<div class="panel" style="padding:12px 16px;display:flex;gap:14px;flex-wrap:wrap;align-items:end">'+
+  '<div><label for="s_theme">Industry</label><select id="s_theme"><option>All</option>'+themes.map(function(t){return'<option'+(t==sF.theme?" selected":"")+'>'+esc(t)+'</option>'}).join("")+'</select></div>'+
+  '<div><label for="s_metric">Measure</label><select id="s_metric">'+METRICS.map(function(mt){return'<option value="'+mt[0]+'"'+(mt[0]==sF.metric?" selected":"")+'>'+mt[1]+'</option>'}).join("")+'</select></div>'+
+  '<div><label for="s_dir">Is</label><select id="s_dir"><option value="more"'+(sF.dir=="more"?" selected":"")+'>more than</option><option value="less"'+(sF.dir=="less"?" selected":"")+'>less than</option></select></div>'+
+  '<div><label for="s_val">%</label><input id="s_val" type="number" step="any" value="'+esc(sF.val)+'" style="width:90px" placeholder="any"></div>'+
+  '<div><label for="s_off">Against its year high</label><select id="s_off">'+["Any","Within 10%","Within 25%","More than 20% below","More than 40% below"].map(function(o){return'<option'+(o==sF.off?" selected":"")+'>'+o+'</option>'}).join("")+'</select></div>'+
+  '<div><label for="s_vol">How much it jumps about</label><select id="s_vol">'+["Any","Calmer than 30%","Calmer than 45%","Wilder than 45%"].map(function(o){return'<option'+(o==sF.vol?" selected":"")+'>'+o+'</option>'}).join("")+'</select></div>'+
+  '<div><label for="s_own">Already mine</label><select id="s_own">'+["All","Only what I hold","Only what I do not hold"].map(function(o){return'<option'+(o==sF.own?" selected":"")+'>'+o+'</option>'}).join("")+'</select></div>'+
+  '<div style="flex:1;min-width:150px"><label for="s_q">Name contains</label><input id="s_q" value="'+esc(sF.q)+'" placeholder="optional"></div>'+
+  '</div>';
+ h+='<div class="acts" style="flex-wrap:wrap">'+PRESETS.map(function(p,i){return'<button class="btn ghost" data-preset="'+i+'">'+esc(p[0])+'</button>'}).join("")+'<button class="btn ghost" data-preset="x">Clear</button></div>';
+ if(sF.note)h+='<p class="note">'+esc(sF.note)+'</p>';
+ var L=codes.map(function(c){var x=S[c];x.code=c;return x}).filter(function(x){
+  if(sF.theme!="All"&&(x.theme||"Other")!=sF.theme)return false;
+  if(sF.own=="Only what I hold"&&!owned[x.code])return false;
+  if(sF.own=="Only what I do not hold"&&owned[x.code])return false;
+  if(sF.q&&(x.name||"").toLowerCase().indexOf(sF.q.toLowerCase())<0)return false;
+  if(sF.val!==""&&sF.val!=null){var v=x[sF.metric];if(v==null)return false;
+   if(sF.dir=="more"&&!(v>num(sF.val)))return false;
+   if(sF.dir=="less"&&!(v<num(sF.val)))return false}
+  var off=x.offHigh;
+  if(sF.off=="Within 10%"&&!(off!=null&&off>=-10))return false;
+  if(sF.off=="Within 25%"&&!(off!=null&&off>=-25))return false;
+  if(sF.off=="More than 20% below"&&!(off!=null&&off<=-20))return false;
+  if(sF.off=="More than 40% below"&&!(off!=null&&off<=-40))return false;
+  if(sF.vol=="Calmer than 30%"&&!(x.vol!=null&&x.vol<30))return false;
+  if(sF.vol=="Calmer than 45%"&&!(x.vol!=null&&x.vol<45))return false;
+  if(sF.vol=="Wilder than 45%"&&!(x.vol!=null&&x.vol>45))return false;
+  return true});
+ L.sort(function(a,b){var k=sF.sort,av=a[k],bv=b[k];if(av==null)return 1;if(bv==null)return -1;return bv-av});
+ h+='<p class="note">'+L.length+' of '+codes.length+' names match. Prices as of '+esc(SCR.updated||"")+'.</p>';
+ if(!L.length)return h+'<div class="flag">Nothing matches. Widen a box, or clear the percentage.</div>'+screenFoot();
+ h+=rows('<th>Name</th><th>Industry</th><th class="n">Price</th><th class="n">1m</th><th class="n">3m</th><th class="n">6m</th><th class="n">1y</th><th class="n">Off its high</th><th class="n">Jumpiness</th>',
+  L.slice(0,80).map(function(x){return'<tr><td>'+esc(x.name)+(owned[x.code]?' <span class="pill">held</span>':"")+'<br><span class="note">'+esc(x.code)+'</span></td><td style="white-space:normal">'+esc(x.theme||"")+'</td>'+
+   '<td class="n">'+(x.currency=="USD"?"$":"₹")+x.price+'</td><td class="n">'+fmtPct(x.m1)+'</td><td class="n">'+fmtPct(x.m3)+'</td><td class="n">'+fmtPct(x.m6)+'</td><td class="n">'+fmtPct(x.y1)+'</td>'+
+   '<td class="n">'+(x.offHigh==null?"-":x.offHigh.toFixed(0)+"%")+'</td><td class="n">'+(x.vol==null?"-":x.vol+"%")+'</td></tr>'}).join(""),
+  L.length>80?"Showing the first 80. Narrow the filters to see the rest.":"");
+ return h+screenFoot()}
+function screenFoot(){
+ return'<h2>What this can and cannot tell you</h2><div class="panel" style="padding:14px 18px"><p class="note" style="margin:0 0 8px">Everything here comes from price alone. There is no free source of company accounts for Indian shares, so the screen knows nothing about earnings, debt, margins, promoter holding or valuation. A share near its year high may be expensive or cheap, and this cannot tell you which.</p>'+
+ '<p class="note" style="margin:0 0 8px">Use it to find candidates, then check the figures on Screener.in or the company&rsquo;s own results before buying anything. Jumpiness is how much the price swings over a year, so 60% means large daily moves in both directions.</p>'+
+ '<p class="note" style="margin:0">The list of companies lives in data/universe.json in your repository. Add or remove names there, and set your own industry label for each, which becomes the Industry box above. Anything you hold is included automatically.</p></div>'}
+
 /* ---------- check-up ---------- */
 function ageDays(d){if(!d)return null;var m=String(d).match(/(\d{2})-(\d{2}|[A-Za-z]{3})-(\d{4})/);if(!m)return null;
  var mo={jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11}[String(m[2]).toLowerCase().slice(0,3)];
@@ -912,7 +977,7 @@ function checkup(){var r=qc();
  return h}
 
 /* ---------- shell ---------- */
-var PAGES=[["dash","Dashboard",dash],["port","Portfolio",portfolio],["sig","Sell or hold",signalsPage],["act","Sales and withdrawals",activity],["cash","Income and bills",cash],["sip","SIP calendar",sipPage],["news","News",newsPage],["tax","Tax",taxPage],["check","Check-up",checkup],["data","Data",data]];
+var PAGES=[["dash","Dashboard",dash],["port","Portfolio",portfolio],["sig","Sell or hold",signalsPage],["act","Sales and withdrawals",activity],["cash","Income and bills",cash],["sip","SIP calendar",sipPage],["news","News",newsPage],["screen","Find ideas",screenPage],["tax","Tax",taxPage],["check","Check-up",checkup],["data","Data",data]];
 function render(){
  if(PXm)applyPrices();
  document.getElementById("nav").innerHTML=PAGES.map(function(p){return'<a tabindex="0" class="'+(page==p[0]?"on":"")+'" data-go="'+p[0]+'">'+p[1]+'</a>'}).join("");
@@ -927,6 +992,11 @@ document.addEventListener("click",function(ev){var t=ev.target,g=function(a){ret
  if(g("data-dr")){dr={k:g("data-dr"),i:g("data-i")==null?-1:+g("data-i")};err="";ok="";render();return}
  if(g("data-close")||t.className=="drawer"){dr=null;err="";render();return}
  if(g("data-save")){saveForm();return}
+ if(g("data-preset")){var pv=g("data-preset");
+  if(pv=="x")sF={theme:"All",metric:"y1",dir:"more",val:"",off:"Any",vol:"Any",own:"All",sort:"y1",q:"",note:""};
+  else{var P=PRESETS[+pv];sF={theme:sF.theme,metric:"y1",dir:"more",val:"",off:"Any",vol:"Any",own:sF.own,sort:"y1",q:"",note:P[1]};
+   Object.keys(P[2]).forEach(function(k){sF[k]=P[2][k]})}
+  render();return}
  if(g("data-trip")){var L=(D.plan.trips||TRIPS).slice();L.splice(+g("data-trip"),1);D.plan.trips=L;save();render();return}
  if(g("data-addtrip")){var L2=(D.plan.trips||TRIPS).slice();L2.push({name:"New destination",per:50000,note:""});D.plan.trips=L2;save();render();return}
  if(g("data-resettrip")){delete D.plan.trips;save();render();return}
@@ -946,10 +1016,13 @@ document.addEventListener("click",function(ev){var t=ev.target,g=function(a){ret
 document.addEventListener("keydown",function(e){if(e.key=="Escape"&&dr){dr=null;render()}
  if(e.key=="Enter"&&e.target.className==""&&e.target.getAttribute&&e.target.getAttribute("data-go")){page=e.target.getAttribute("data-go");render()}});
 document.addEventListener("input",function(e){var t=e.target;
+ if(t.id=="s_q"||t.id=="s_val"){sF[t.id.slice(2)]=t.value;var p2=t.selectionStart,id2=t.id;render();
+  var e2=document.getElementById(id2);if(e2){e2.focus();try{e2.setSelectionRange(p2,p2)}catch(x){}}return}
  if(t.id=="n_q"){nQ=t.value;var pos=t.selectionStart;render();var n=document.getElementById("n_q");if(n){n.focus();try{n.setSelectionRange(pos,pos)}catch(x){}}}});
 document.addEventListener("change",function(e){var t=e.target;
  if(t.id=="merge"){merge=t.checked;render();return}
  if(t.id=="n_theme"){nTheme=t.value;render();return}
+ if(/^s_(theme|metric|dir|val|off|vol|own)$/.test(t.id)){sF[t.id.slice(2)]=t.value;sF.note="";render();return}
  if(t.id=="n_small"){nSmall=t.checked;render();return}
  if(t.id=="filt"){filt=t.value;sub="All";render();return}
  if(t.id=="sub"){sub=t.value;render();return}
@@ -969,4 +1042,5 @@ render();
 loadPrices();
 loadHolidays();
 loadNews();
+loadScreen();
 </script></body></html>
