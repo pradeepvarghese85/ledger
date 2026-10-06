@@ -1019,21 +1019,31 @@ function readDetailed(){var pw=val("dcpw"),f=dcFile;err="";ok="";
   if(!DC.schemes.length)err="No scheme blocks were found. This looks like a summary statement rather than a detailed one.";
   render()})
  .catch(function(e){DC=null;err=(e&&e.name=="PasswordException")?(e.code==2?"That password is not right.":"This file needs a password. Type it above and press Read."):"Could not open this file.";render()})}
-function dcMatch(s){var hit=null;
+function dcClash(){var by={},out={};
+ if(!DC)return out;
+ DC.schemes.forEach(function(s,i){var m=dcMatch(s,true);if(!m)return;(by[m.i]=by[m.i]||[]).push(i)});
+ Object.keys(by).forEach(function(k){var list=by[k];if(list.length<2)return;
+  var keep=list[0];list.forEach(function(i){if((DC.schemes[i].closing||0)>(DC.schemes[keep].closing||0))keep=i});
+  list.forEach(function(i){if(i!=keep)out[i]=DC.schemes[keep].name})});
+ return out}
+function dcMatch(s,raw){var hit=null;
  D.inv.forEach(function(r,i){if(hit)return;
   var a=(r.name||"").toLowerCase().replace(/[^a-z0-9]/g,""),b=(s.name||"").toLowerCase().replace(/[^a-z0-9]/g,"");
   if(a&&b&&(a.indexOf(b)>-1||b.indexOf(a)>-1))hit={r:r,i:i}});
+ if(hit&&!raw&&dcClashes[DC.schemes.indexOf(s)])return null;
  return hit}
+var dcClashes={};
 function dcReview(){if(!DC)return"";
+ dcClashes=dcClash();
  var h='<div class="panel" style="margin-top:12px;padding:16px"><p style="margin-top:0">'+DC.schemes.length+' schemes found'+(DC.period?' for '+esc(DC.period):"")+'.</p>';
  DC.warn.forEach(function(w){h+='<div class="flag">'+esc(w)+'</div>'});
  h+='<div class="tw"><table><tr><th>Use</th><th>Scheme</th><th class="n">Units now</th><th class="n">Cost</th><th class="n">Value</th><th>Bought</th><th>Sold</th><th>In your list</th></tr>';
- DC.schemes.forEach(function(s,i){var m=dcMatch(s);
+ DC.schemes.forEach(function(s,i){var m=dcMatch(s),clash=dcClashes[i];
   h+='<tr><td><input type="checkbox" id="dk'+i+'" checked style="width:auto"></td>'+
    '<td>'+esc(s.name)+'<br><span class="note">'+esc(s.isin)+(s.demat?" · demat":"")+(s.folio?" · folio "+esc(s.folio):"")+'</span></td>'+
    '<td class="n">'+(s.closing==null?"-":s.closing)+'</td><td class="n">'+(s.cost==null?"-":inr(s.cost))+'</td><td class="n">'+(s.value==null?"-":inr(s.value))+'</td>'+
    '<td class="n">'+s.bought.length+'</td><td class="n">'+(s.sold.length?'<b class="down">'+s.sold.length+'</b>':"0")+'</td>'+
-   '<td>'+(m?esc(m.r.name):'<span class="note">new</span>')+(s.noOpen?' <span class="down">no opening balance shown</span>':s.check===false?' <span class="down">off by '+s.gap+' units</span>':"")+'</td></tr>';
+   '<td>'+(clash?'<span class="note">left alone, '+esc(clash)+' has the units</span>':m?esc(m.r.name):'<span class="note">new</span>')+(s.noOpen?' <span class="down">no opening balance shown</span>':s.check===false?' <span class="down">off by '+s.gap+' units</span>':"")+'</td></tr>';
   if(s.check===false||s.noOpen)h+='<tr><td></td><td colspan="7" class="note" style="white-space:normal">What was read: '+
    s.tx.map(function(x){return esc(x.date)+" "+esc((x.desc||"").slice(0,40))+(x.units!=null?" · "+x.units+" units":"")+(x.charge!=null?" · charge "+x.charge:"")}).join("<br>")+'</td></tr>'});
  h+='</table></div>';
@@ -1048,12 +1058,15 @@ function dcReview(){if(!DC)return"";
     '<td><input id="dsb'+k+'" type="date" style="width:150px"></td></tr>'});
   h+='</table></div>'}
  h+='<div class="acts"><button class="btn" data-dcas="apply">Bring these in</button></div>'+
-  '<p class="note">Units, cost and value are taken from the statement and replace what you have, because the statement is the authority. Nothing is doubled up: purchases are not added again, and sales do not reduce anything.</p></div>';
+  '<p class="note">What changes on a holding it recognises: units, cost and value are replaced by the statement&rsquo;s figures, and a monthly amount and day are filled in only if yours are blank. What is never touched: the name, type, fund type, where it is held, the feed code, and anything you typed that the statement does not carry. A scheme shown as new is added as a fresh holding, so if it is something you already have under another name, fix the name first or you will end up with two. Copy your backup from the box below before you press the button.<br>Units, cost and value are taken from the statement and replace what you have, because the statement is the authority. Nothing is doubled up: purchases are not added again, and sales do not reduce anything.</p></div>';
  return h}
 function dcApply(){var added=0,updated=0,sales=0,closed=0,wl=[];
+ dcClashes=dcClash();
  DC.schemes.forEach(function(s,i){var e=document.getElementById("dk"+i);if(!e||!e.checked)return;
   var m=dcMatch(s);
+  if(dcClashes[i])return;                       // a different plan of the same fund owns this row
   if(s.closing!==null&&s.closing<=0){
+   if(m&&!s.sold.length&&!s.bought.length)return;   // nothing happened in the period, so leave it be
    if(m){m.r.qty=0;m.r.value=0;m.r.invested=0;m.r.status="Stopped";m.r.mc="";m.r.note=(m.r.note?m.r.note+"; ":"")+"exited, from the CAS";closed++}
    return}
   if(m){var r=m.r;
