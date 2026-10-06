@@ -447,13 +447,14 @@ def news(w, holdings=True):
 
 
 def main(mode=""):
-    """everything = the full run. live = news and a quick screen refresh.
-    close = those plus prices. news and prices do just what they say."""
+    """everything = the full run, including the screen. live = news only.
+    close = news and prices, after the Indian close. screen = a quick screen refresh,
+    if you ever want one by hand. news and prices do just what they say."""
     w = load(WATCH, {})
     mode = mode or "everything"
     do_prices = mode in ("everything", "close", "prices")
     do_full_screen = (mode == "everything")
-    do_quick_screen = mode in ("live", "close", "news")
+    do_quick_screen = (mode == "screen")        # the screen is rebuilt once a day, at 03:00
     do_news = mode in ("everything", "live", "close", "news")
     print("Mode: %s" % mode)
 
