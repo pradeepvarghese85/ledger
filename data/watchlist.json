@@ -97,6 +97,16 @@
     {
       "code": "YESBANK.NS",
       "name": "Yes Bank"
+    },
+    {
+      "code": "^NSEI",
+      "name": "Nifty 50 index",
+      "index": true
+    },
+    {
+      "code": "^CRSLDX",
+      "name": "Nifty 500 index",
+      "index": true
     }
   ],
   "funds": [
