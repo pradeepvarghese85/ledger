@@ -53,6 +53,28 @@ jobs:
       - name: Fetch
         run: python update.py ${{ steps.mode.outputs.args }}
 
+      - name: Tell me about anything notable
+        if: steps.mode.outputs.args == '' || steps.mode.outputs.args == 'close'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python - <<'PY' > /tmp/alerts.txt
+          import json
+          try:
+              d = json.load(open("data/alerts.json"))
+          except Exception:
+              d = {}
+          for x in d.get("items", []):
+              print("- " + x)
+          PY
+          if [ -s /tmp/alerts.txt ]; then
+            gh issue create \
+              --title "Portfolio notes, $(TZ=Asia/Kolkata date +'%d %b %Y %H:%M')" \
+              --body-file /tmp/alerts.txt || echo "Could not raise an issue; the alerts are still in data/alerts.json"
+          else
+            echo "Nothing worth flagging."
+          fi
+
       - name: Save what changed
         run: |
           git config user.name "price bot"
