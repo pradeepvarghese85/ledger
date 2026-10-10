@@ -85,19 +85,22 @@
    "2026-10-06": 14.3787,
    "2026-10-07": 14.4299,
    "2026-10-08": 14.4318,
-   "2026-10-09": 14.451
+   "2026-10-09": 14.451,
+   "2026-10-10": 14.4454
   },
   "FX:HKDINR": {
    "2026-10-06": 12.2867,
    "2026-10-07": 12.3323,
    "2026-10-08": 12.3327,
-   "2026-10-09": 12.33
+   "2026-10-09": 12.33,
+   "2026-10-10": 12.3347
   },
   "FX:USDINR": {
    "2026-10-06": 96.42,
    "2026-10-07": 96.765,
    "2026-10-08": 96.77,
-   "2026-10-09": 96.76
+   "2026-10-09": 96.76,
+   "2026-10-10": 96.78
   },
   "HCC.NS": {
    "2026-09-07": 23.540000915527344,
@@ -150,7 +153,7 @@
    "2026-10-05": 109.87999725341797,
    "2026-10-06": 110.0,
    "2026-10-07": 108.86000061035156,
-   "2026-10-08": 106.52,
+   "2026-10-08": 106.5199966430664,
    "2026-10-09": 108.11
   },
   "IDFCFIRSTB.NS": {
@@ -283,7 +286,8 @@
    "2026-10-05": 105.337,
    "2026-10-06": 106.5625,
    "2026-10-07": 106.0207,
-   "2026-10-08": 104.0104
+   "2026-10-08": 104.0104,
+   "2026-10-09": 105.1415
   },
   "MF:AXIS-LARGECAP": {
    "2026-07-30": 70.11,
@@ -334,7 +338,8 @@
    "2026-10-05": 66.11,
    "2026-10-06": 66.74,
    "2026-10-07": 66.33,
-   "2026-10-08": 65.34
+   "2026-10-08": 65.34,
+   "2026-10-09": 66.06
   },
   "MF:CANARA-ELSS": {
    "2026-07-30": 202.33,
@@ -385,7 +390,8 @@
    "2026-10-05": 191.83,
    "2026-10-06": 193.77,
    "2026-10-07": 192.83,
-   "2026-10-08": 189.54
+   "2026-10-08": 189.54,
+   "2026-10-09": 191.43
   },
   "MF:DSP-ELSS": {
    "2026-07-30": 156.452,
@@ -436,7 +442,8 @@
    "2026-10-05": 146.67,
    "2026-10-06": 148.195,
    "2026-10-07": 147.298,
-   "2026-10-08": 144.936
+   "2026-10-08": 144.936,
+   "2026-10-09": 146.537
   },
   "MF:HDFC-BAF": {
    "2026-07-30": 570.779,
@@ -487,7 +494,8 @@
    "2026-10-05": 548.058,
    "2026-10-06": 552.057,
    "2026-10-07": 549.72,
-   "2026-10-08": 541.862
+   "2026-10-08": 541.862,
+   "2026-10-09": 546.088
   },
   "MF:ICICI-LARGECAP": {
    "2026-07-30": 120.83,
@@ -538,7 +546,8 @@
    "2026-10-05": 112.67,
    "2026-10-06": 113.86,
    "2026-10-07": 113.07,
-   "2026-10-08": 111.2
+   "2026-10-08": 111.2,
+   "2026-10-09": 112.53
   },
   "MF:KOTAK-MIDCAP": {
    "2026-07-30": 170.104,
@@ -589,7 +598,8 @@
    "2026-10-05": 160.807,
    "2026-10-06": 161.66,
    "2026-10-07": 161.629,
-   "2026-10-08": 158.633
+   "2026-10-08": 158.633,
+   "2026-10-09": 160.515
   },
   "MF:MIRAE-ELSS": {
    "2026-07-30": 57.842,
@@ -640,7 +650,8 @@
    "2026-10-05": 54.161,
    "2026-10-06": 54.824,
    "2026-10-07": 54.464,
-   "2026-10-08": 53.334
+   "2026-10-08": 53.334,
+   "2026-10-09": 53.919
   },
   "MF:MIRAE-LARGEMID": {
    "2026-07-30": 179.473,
@@ -691,7 +702,8 @@
    "2026-10-05": 168.061,
    "2026-10-06": 170.118,
    "2026-10-07": 168.907,
-   "2026-10-08": 165.402
+   "2026-10-08": 165.402,
+   "2026-10-09": 167.333
   },
   "MF:NIPPON-USEQ": {
    "2026-07-29": 45.6025,
@@ -844,7 +856,8 @@
    "2026-10-05": 205.7854,
    "2026-10-06": 208.2586,
    "2026-10-07": 208.0836,
-   "2026-10-08": 203.8969
+   "2026-10-08": 203.8969,
+   "2026-10-09": 204.5604
   },
   "MF:SUNDARAM-SERVICES": {
    "2026-07-30": 39.7669,
@@ -946,7 +959,8 @@
    "2026-10-05": 51.6326,
    "2026-10-06": 52.2547,
    "2026-10-07": 52.0279,
-   "2026-10-08": 50.9199
+   "2026-10-08": 50.9199,
+   "2026-10-09": 51.3992
   },
   "MSUMI.NS": {
    "2026-09-07": 36.900001525878906,
@@ -1107,7 +1121,8 @@
    "2026-10-06": 312.760009765625,
    "2026-10-07": 311.94000244140625,
    "2026-10-08": 307.8500061035156,
-   "2026-10-09": 308.913
+   "2026-10-09": 308.913,
+   "2026-10-10": 309.39
   },
   "RENUKA.NS": {
    "2026-09-07": 25.149999618530273,
@@ -1456,22 +1471,22 @@
    "price": 194.67
   },
   "FX:CNYINR": {
-   "date": "09-10-2026",
+   "date": "10-10-2026",
    "kind": "fx",
    "name": "CNY to INR",
-   "price": 14.451
+   "price": 14.4454
   },
   "FX:HKDINR": {
-   "date": "09-10-2026",
+   "date": "10-10-2026",
    "kind": "fx",
    "name": "HKD to INR",
-   "price": 12.33
+   "price": 12.3347
   },
   "FX:USDINR": {
-   "date": "09-10-2026",
+   "date": "10-10-2026",
    "kind": "fx",
    "name": "USD to INR",
-   "price": 96.76
+   "price": 96.78
   },
   "HCC.NS": {
    "currency": "INR",
@@ -1509,84 +1524,84 @@
    "price": 85.87
   },
   "MF:AXIS-ELSS": {
-   "date": "08-10-2026",
+   "date": "09-10-2026",
    "how": "matched by ISIN (mfapi)",
    "kind": "nav",
    "matched": "Axis ELSS- Tax Saver Fund - Direct Plan - Growth Option",
    "name": "Axis ELSS Tax Saver",
-   "price": 104.0104,
+   "price": 105.1415,
    "scheme": "120503"
   },
   "MF:AXIS-LARGECAP": {
-   "date": "08-10-2026",
+   "date": "09-10-2026",
    "how": "matched by ISIN (mfapi)",
    "kind": "nav",
    "matched": "Axis Large Cap Fund - Direct Plan - Growth Option",
    "name": "Axis Large Cap",
-   "price": 65.34,
+   "price": 66.06,
    "scheme": "120465"
   },
   "MF:CANARA-ELSS": {
-   "date": "08-10-2026",
+   "date": "09-10-2026",
    "how": "matched by ISIN (mfapi)",
    "kind": "nav",
    "matched": "Canara Robeco ELSS - Tax Saver Fund - Direct Plan - GROWTH OPTION",
    "name": "Canara Robeco ELSS",
-   "price": 189.54,
+   "price": 191.43,
    "scheme": "118285"
   },
   "MF:DSP-ELSS": {
-   "date": "08-10-2026",
+   "date": "09-10-2026",
    "how": "matched by ISIN (mfapi)",
    "kind": "nav",
    "matched": "DSP ELSS Tax Saver Fund - Direct Plan - Growth",
    "name": "DSP ELSS Tax Saver",
-   "price": 144.936,
+   "price": 146.537,
    "scheme": "119242"
   },
   "MF:HDFC-BAF": {
-   "date": "08-10-2026",
+   "date": "09-10-2026",
    "how": "matched by ISIN (mfapi)",
    "kind": "nav",
    "matched": "HDFC Balanced Advantage Fund - Direct Plan - Growth Option",
    "name": "HDFC Balanced Advantage",
-   "price": 541.862,
+   "price": 546.088,
    "scheme": "118968"
   },
   "MF:ICICI-LARGECAP": {
-   "date": "08-10-2026",
+   "date": "09-10-2026",
    "how": "matched by ISIN (mfapi)",
    "kind": "nav",
    "matched": "ICICI Prudential Large Cap Fund (erstwhile Bluechip Fund) - Direct Plan - Growth",
    "name": "ICICI Pru Large Cap",
-   "price": 111.2,
+   "price": 112.53,
    "scheme": "120586"
   },
   "MF:KOTAK-MIDCAP": {
-   "date": "08-10-2026",
+   "date": "09-10-2026",
    "how": "matched by ISIN (mfapi)",
    "kind": "nav",
    "matched": "Kotak Mid Cap Fund - Direct Plan - Growth",
    "name": "Kotak Mid Cap",
-   "price": 158.633,
+   "price": 160.515,
    "scheme": "119775"
   },
   "MF:MIRAE-ELSS": {
-   "date": "08-10-2026",
+   "date": "09-10-2026",
    "how": "matched by ISIN (mfapi)",
    "kind": "nav",
    "matched": "Mirae Asset ELSS Tax Saver Fund - Direct Plan - Growth",
    "name": "Mirae ELSS Tax Saver",
-   "price": 53.334,
+   "price": 53.919,
    "scheme": "135781"
   },
   "MF:MIRAE-LARGEMID": {
-   "date": "08-10-2026",
+   "date": "09-10-2026",
    "how": "matched by ISIN (mfapi)",
    "kind": "nav",
    "matched": "Mirae Asset Large & Midcap Fund - Direct Plan - Growth",
    "name": "Mirae Large & Midcap",
-   "price": 165.402,
+   "price": 167.333,
    "scheme": "118834"
   },
   "MF:NIPPON-USEQ": {
@@ -1608,12 +1623,12 @@
    "scheme": "122639"
   },
   "MF:SBI-SMALLCAP": {
-   "date": "08-10-2026",
+   "date": "09-10-2026",
    "how": "matched by ISIN (mfapi)",
    "kind": "nav",
    "matched": "SBI SMALL CAP FUND - Direct Plan - Growth",
    "name": "SBI Small Cap",
-   "price": 203.8969,
+   "price": 204.5604,
    "scheme": "125497"
   },
   "MF:SUNDARAM-SERVICES": {
@@ -1626,12 +1641,12 @@
    "scheme": "144835"
   },
   "MF:TATA-ELSS": {
-   "date": "08-10-2026",
+   "date": "09-10-2026",
    "how": "matched by ISIN (mfapi)",
    "kind": "nav",
    "matched": "Tata ELSS - Tax Saver Fund - Direct Plan - Growth Option",
    "name": "Tata ELSS Tax Saving",
-   "price": 50.9199,
+   "price": 51.3992,
    "scheme": "132756"
   },
   "MSUMI.NS": {
@@ -1671,10 +1686,10 @@
   },
   "QQQM": {
    "currency": "USD",
-   "date": "09-10-2026",
+   "date": "10-10-2026",
    "kind": "price",
    "name": "Invesco NASDAQ 100 ETF",
-   "price": 308.913
+   "price": 309.39
   },
   "RENUKA.NS": {
    "currency": "INR",
@@ -1762,5 +1777,5 @@
   }
  },
  "stale": [],
- "updated": "09-10-2026 22:41 IST"
+ "updated": "10-10-2026 06:33 IST"
 }
