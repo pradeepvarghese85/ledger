@@ -206,6 +206,9 @@ function dash(){var t=totals();
  var G={},tv=0;D.inv.forEach(function(r){var a=group(r),v=num(r.value);tv+=v;G[a[0]]=G[a[0]]||{t:0,s:{}};G[a[0]].t+=v;G[a[0]].s[a[1]]=(G[a[0]].s[a[1]]||0)+v});
  h+=alertBlock();
  if(PXm&&PXm.history&&Object.keys(PXm.history).length){h+='<h2>Against the index</h2>'+benchBlock()}
+ var fh=D.inv.filter(function(r){return localGain(r)});
+ if(fh.length){var any=fh[0],fxn=rate(any&&(PX[any.code]||{}).currency);
+  h+='<div class="flag">You hold '+fh.length+' thing'+(fh.length>1?"s":"")+' priced in a foreign currency. Two gains are shown for '+(fh.length>1?"each":"it")+': the one in its own currency, which is what the investment did, and the one in rupees, which is what you actually made. They differ by how the rupee moved and by what your bank charged on each transfer'+(fxn?", with the rupee at about "+(Math.round(fxn*100)/100)+" today":"")+'.</div>'}
  if(tv>0){h+='<h2>How your money is spread</h2><div class="panel alloc">';
   Object.keys(G).sort(function(a,b){return G[b].t-G[a].t}).forEach(function(k){var p=G[k].t/tv*100;
    h+='<div class="g"><b>'+esc(k)+'</b><span>'+inr(G[k].t)+' · '+p.toFixed(1)+'%</span></div><div class="track"><i style="width:'+p.toFixed(2)+'%"></i></div><div class="subs">'+
@@ -216,6 +219,12 @@ function dash(){var t=totals();
  if(!D.inc.length)h+='<div class="flag">Add your income and bills to see what you can spare each month. <button class="btn link" data-go="cash">Go to Income and bills</button></div>';
  return h}
 
+function localGain(r){
+ var c=(PX[r.code]||{}).currency,fc=num(r.fcost);
+ if(!c||c=="INR"||!(fc>0)||!(num(r.qty)>0)||!PX[r.code])return null;
+ var val=num(r.qty)*PX[r.code].price,g=(val/fc-1)*100;
+ return{cur:c,val:val,html:'<span class="'+(g>=0?"up":"down")+'">'+(g>0?"+":"")+g.toFixed(1)+'%</span> <span class="note">'+
+  c+" "+(Math.round(val*100)/100).toLocaleString("en-US")+" vs "+fc.toLocaleString("en-US")+'</span>'}}
 function holdCard(o){
  // o: {name, meta, right, sub, lines[], i}
  return'<div class="card"><div class="card-top"><div><div class="card-name">'+o.name+'</div><div class="note">'+o.meta+'</div></div>'+
@@ -253,6 +262,7 @@ function portfolio(){
     right:'<b>'+inr(m.v)+'</b>',sub:(tv?(m.v/tv*100).toFixed(1)+'% of all':""),
     lines:[["units",m.q?String(Math.round(m.q*1e4)/1e4):"-"],["put in",m.i?inr(m.i)+(m.part?" *":""):"-"],
       ["gain",g===null?"-":'<span class="'+(g>=0?"up":"down")+'">'+(g>0?"+":"")+g.toFixed(1)+'%</span>']].concat(
+       localGain(m.r)?[["in "+localGain(m.r).cur,localGain(m.r).html]]:[]).concat(
        m.r.why?[["why",esc(m.r.why)]]:[])})}).join("")+
    '<p class="note">Rows with the same name and type are added together. A star means the cost was missing for part of it. Untick the box above to edit single entries.</p>';
   h+=rows('<th>Holding</th><th>Type</th><th>Fund type</th><th>Held in</th><th class="n">Units</th><th class="n">Put in</th><th class="n">Value</th><th class="n">Share</th>',
@@ -269,6 +279,7 @@ function portfolio(){
     lines:[["units",r.qty===""?"-":String(r.qty)],["put in",r.invested===""?"-":inr(r.invested)],
       ["gain",g===null?"-":'<span class="'+(g>=0?"up":"down")+'">'+(g>0?"+":"")+g.toFixed(1)+'%</span>'],
       ["code",r.code?esc(r.code):"typed in"],["price",r.live?esc(String(r.live)):"-"]].concat(
+       localGain(r)?[["in "+localGain(r).cur,localGain(r).html]]:[]).concat(
        r.why?[["why",esc(r.why)]]:[]).concat(r.sell?[["sell when",esc(r.sell)]]:[]),i:x.i})}).join("");
   h+=rows('<th>Holding</th><th>Type</th><th>Fund type</th><th>Held in</th><th>Feed code</th><th class="n">Units</th><th class="n">Put in</th><th class="n">Value</th><th>Status</th><th></th>',
   D.inv.map(function(r,i){return keep(r)?'<tr><td>'+esc(r.name)+'</td><td>'+esc(r.cat)+'</td><td>'+esc(r.sub=="-"?"":r.sub)+'</td><td>'+esc(r.plat)+'</td><td>'+esc(r.code||"")+'</td><td class="n">'+(r.qty===""?"-":r.qty)+'</td><td class="n">'+(r.invested===""?"-":inr(r.invested))+'</td><td class="n">'+inr(r.value)+'</td><td><span class="pill">'+esc(r.status)+'</span></td><td><button class="btn link" data-dr="inv" data-i="'+i+'">Edit</button><button class="btn link danger" data-del="inv|'+i+'">Delete</button></td></tr>':""}).join(""),"")}
@@ -408,7 +419,7 @@ function priceLine(){
 
 /* ---------- drawers ---------- */
 var FORMS={
- inv:{title:"Holding",fields:[["name","Name","t"],["cat","Type","s",CATS],["sub","Fund type, for funds","s",SUBS],["plat","Where it is held","t"],["code","Price feed code","t"],["mkt","Market","s",MKTS],["qty","Units or quantity","n"],["invested","Total put in so far","n"],["value","What it is worth now","n"],["mc","Regular amount a month","n"],["day","Day of the month it goes out","n"],["rate","Interest rate %, for PPF, EPF and deposits","n"],["status","Status","s",STAT],["mat","Matures or lock-in ends","d"],["why","Why you own it","t"],["sell","What would make you sell","t"],["review","Review it on","d"],["note","Note","t"]],
+ inv:{title:"Holding",fields:[["name","Name","t"],["cat","Type","s",CATS],["sub","Fund type, for funds","s",SUBS],["plat","Where it is held","t"],["code","Price feed code","t"],["mkt","Market","s",MKTS],["qty","Units or quantity","n"],["invested","Total put in so far, in rupees","n"],["fcost","Total put in, in its own currency","n"],["value","What it is worth now","n"],["mc","Regular amount a month","n"],["day","Day of the month it goes out","n"],["rate","Interest rate %, for PPF, EPF and deposits","n"],["status","Status","s",STAT],["mat","Matures or lock-in ends","d"],["why","Why you own it","t"],["sell","What would make you sell","t"],["review","Review it on","d"],["note","Note","t"]],
   hint:"The price feed code links this holding to the nightly update: a Yahoo symbol such as RVNL.NS for shares, QQQM for a US one, or the MF: label you gave the fund in watchlist.json. The Data page lists the format for every kind of holding. Leave it blank for PPF, EPF, NPS, gold and deposits, and type their value in yourself. For those, put everything you have contributed in Total put in, and the balance today in What it is worth now."},
  inc:{title:"Income",fields:[["name","Source","t"],["type","Type","s",INCT],["amt","Amount","n"],["freq","How often","s",FREQ],["note","Note","t"]]},
  lia:{title:"Loan or bill",fields:[["name","Name","t"],["type","Type","s",LIAT],["amt","Amount each time","n"],["freq","How often","s",FREQ],["out","Still owed","n"],["end","Ends on","d"],["status","Status","s",LSTAT],["note","Note","t"]]}};
@@ -600,33 +611,44 @@ function dueSips(){var out=[],today=new Date();today.setHours(0,0,0,0);
    if(sh.date<=today&&(!r.lastSip||iso(sh.date)>r.lastSip))out.push({i:i,r:r,date:sh.date,iso:iso(sh.date),moved:sh.moved,why:sh.why});
    d=new Date(d.getFullYear(),d.getMonth()+1,1);n++}});
  out.sort(function(a,b){return a.date-b.date});return out}
+function sipCur(r){return(PX[r.code]||{}).currency||"INR"}
+function fxOn(cur,when){if(!cur||cur=="INR")return{rate:1,how:"",cur:"INR"};
+ var p=navOn("FX:"+cur+"INR",when);
+ if(p)return{rate:p.price,how:(p.exact?"rate of "+p.date:"rate of "+p.date+", the nearest to "+when),cur:cur};
+ var now=rate(cur);
+ return now?{rate:now,how:"today's rate, not the rate on "+when,cur:cur}:{rate:0,how:"",cur:cur}}
 function confirmSip(k,skip){var due=dueSips(),x=due[k];if(!x)return;
- var r=D.inv[x.i],amt=num(val("sa"+k))||num(r.mc),nav=num(val("sn"+k)),when=val("sd"+k)||x.iso;
+ var r=D.inv[x.i],amt=num(val("sa"+k))||num(r.mc),nav=num(val("sn"+k)),when=val("sd"+k)||x.iso,
+  cur=sipCur(r),fx=cur=="INR"?1:(num(val("sr"+k))||fxOn(cur,when).rate),typed=num(val("su"+k));
  if(when<x.iso)when=x.iso;
  if(!skip){
-  if(!(nav>0)){err="No price for "+x.iso+", so type the NAV or price you were given.";render();return}
-  var units=Math.round(amt/nav*1e4)/1e4;
+  if(!(nav>0)&&!(typed>0)){err="No price for "+x.iso+", so type the price you were given, or the units you were allotted.";render();return}
+  if(cur!="INR"&&!(fx>0)&&!(typed>0)){err="No "+cur+" to rupee rate for "+when+". Type the rate your bank gave you, or the units you were allotted.";render();return}
+  var units=typed>0?Math.round(typed*1e4)/1e4:Math.round(amt/(nav*fx)*1e4)/1e4;
   r.qty=Math.round((num(r.qty)+units)*1e4)/1e4;
   if(r.invested!==""&&r.invested!=null)r.invested=Math.round((num(r.invested)+amt)*100)/100;
-  r.value=Math.round(num(r.qty)*nav*100)/100;
-  D.sips.push({name:r.name,code:r.code||"",date:when,amount:amt,nav:nav,units:units});
-  ok="Added "+units+" units of "+r.name+" at "+nav+" on "+when+"."}
+  if(cur!="INR"&&fx>0)r.fcost=Math.round(((num(r.fcost)||0)+amt/fx)*100)/100;
+  r.value=Math.round(num(r.qty)*nav*(cur=="INR"?1:fx)*100)/100;
+  D.sips.push({name:r.name,code:r.code||"",date:when,amount:amt,nav:nav,units:units,cur:cur,fx:cur=="INR"?"":fx});
+  ok="Added "+units+" units of "+r.name+" at "+nav+(cur=="INR"?"":" "+cur+" and a rate of "+(Math.round(fx*100)/100))+" on "+when+"."}
  else ok="Marked "+r.name+" as not taken on "+when+".";
  r.lastSip=when;err="";save();render()}
 var sipDate={};
 function sipDue(){var due=dueSips();if(!due.length)return"";
  var h='<h2>Instalments to confirm</h2><p class="note">The dashboard cannot see your actual purchases, so it works the units out from the amount and the price on the day. Change the date if your statement shows a different one, check the amount, then confirm. A price is filled in only when it belongs to that exact day, so a day whose NAV is not out yet waits for the next update. If an instalment did not go through, press Not taken.</p>';
- h+='<div class="panel tw"><table class="stick"><thead><tr><th>Date '+tip("The day the money actually reached the fund. Change it if your statement shows another date, and the price for that day is used.")+'</th><th>Holding</th><th>Amount '+tip("What left your bank for this instalment. Change it if a step-up has raised it since.")+'</th><th>Price used '+tip("The NAV or price on the date shown. It is filled in only when a price exists for that exact day; otherwise type it from your statement.")+'</th><th class="n">Units</th><th></th></tr></thead><tbody>';
+ h+='<div class="panel tw"><table class="stick"><thead><tr><th>Date '+tip("The day the money actually reached the fund. Change it if your statement shows another date, and the price for that day is used.")+'</th><th>Holding</th><th>Amount '+tip("What left your bank for this instalment. Change it if a step-up has raised it since.")+'</th><th>Price used '+tip("The NAV or price on the date shown. It is filled in only when a price exists for that exact day; otherwise type it from your statement.")+'</th><th>Rate '+tip("For a holding priced in dollars. Your rupees are converted at this rate before buying, so it decides how many units you get. Type the rate your bank actually used if you know it; it is usually a little worse than the market rate.")+'</th><th class="n">Units '+tip("Worked out for you. If your statement shows the exact units allotted, type them in and that figure is used instead.")+'</th><th></th></tr></thead><tbody>';
  due.forEach(function(x,k){var when=sipDate[x.r.name+"|"+x.iso]||x.iso,
   p=x.r.code?navOn(x.r.code,when):null,nav=(p&&p.exact)?p.price:"",
-  amt=num(x.r.mc),u=nav?Math.round(amt/nav*1e4)/1e4:"",note;
+  amt=num(x.r.mc),cur=sipCur(x.r),f=fxOn(cur,when),
+  u=(nav&&(cur=="INR"||f.rate))?Math.round(amt/(nav*(cur=="INR"?1:f.rate))*1e4)/1e4:"",note;
   if(p&&p.exact)note='<span class="note">price of '+esc(p.date)+'</span>';
   else if(p)note='<span class="down">no price for '+esc(when)+' yet. Nearest is '+p.price+' of '+esc(p.date)+'</span>';
   else note='<span class="down">no price for that day, type it in</span>';
   h+='<tr><td><input type="date" id="sd'+k+'" value="'+esc(when)+'" style="width:152px">'+(x.moved?'<br><span class="note">due the '+x.date.getDate()+", "+esc(x.why)+'</span>':"")+'</td><td>'+esc(x.r.name)+'</td>'+
    '<td><input id="sa'+k+'" type="number" step="any" value="'+esc(x.r.mc)+'" style="width:110px"></td>'+
-   '<td><input id="sn'+k+'" type="number" step="any" value="'+esc(nav)+'" style="width:120px"><br>'+note+'</td>'+
-   '<td class="n">'+(u||"-")+'</td><td><button class="btn" data-sip="'+k+'">Confirm</button> <button class="btn link" data-skip="'+k+'">Not taken</button></td></tr>'});
+   '<td><input id="sn'+k+'" type="number" step="any" value="'+esc(nav)+'" style="width:120px">'+(cur=="INR"?"":' <span class="pill">'+esc(cur)+'</span>')+'<br>'+note+'</td>'+
+   '<td>'+(cur=="INR"?'<span class="note">—</span>':'<input id="sr'+k+'" type="number" step="any" value="'+esc(f.rate?Math.round(f.rate*10000)/10000:"")+'" style="width:100px"><br><span class="note">'+esc(f.how||"no rate found")+'</span>')+'</td>'+
+   '<td class="n"><input id="su'+k+'" type="number" step="any" placeholder="'+(u||"")+'" style="width:100px"></td><td><button class="btn" data-sip="'+k+'">Confirm</button> <button class="btn link" data-skip="'+k+'">Not taken</button></td></tr>'});
  return h+'</table></div>'}
 function sipLog(){var L=(D.sips||[]).slice().reverse();if(!L.length)return"";
  return'<h2>Confirmed instalments</h2>'+rows('<th>Date</th><th>Holding</th><th class="n">Amount</th><th class="n">Price</th><th class="n">Units</th><th></th>',
@@ -1269,6 +1291,7 @@ var HELP={
  "inv:f_code":"The code that fetches the price. A Yahoo symbol such as RVNL.NS or QQQM, or the MF: label you gave the fund in watchlist.json. Leave it blank for PPF, EPF, NPS, gold and deposits, and type their value in yourself. The Data page lists the format for every kind of holding.",
  "inv:f_mkt":"Which market it trades in. A US or China holding has its price converted into rupees for you, and is flagged for Schedule FA at tax time.",
  "inv:f_qty":"Units or shares you hold now, decimals and all. For PPF, EPF and deposits leave it blank and use the value box instead.",
+ "inv:f_fcost":"For a holding bought in dollars, such as a US share or ETF. Put what your platform shows as invested in dollars. The rupee box above is what actually left your bank, including the bank's margin on the exchange rate, so the two gains will differ, and both are shown.",
  "inv:f_invested":"Everything you have put in so far, less anything you have taken out. This is what the gain is measured against. Leave it blank if you do not know; the gain then shows as unknown rather than wrong.",
  "inv:f_value":"What it is worth today. If a price feed code is set, this is overwritten on every update, so you need only fill it in for things you price yourself.",
  "inv:f_mc":"The amount of your monthly SIP or contribution. It feeds the SIP calendar and counts as monthly investing when your spare cash is worked out.",
