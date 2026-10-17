@@ -203,34 +203,109 @@ def pick(f, by_isin, by_code, rows):
 
 
 def past_navs(scheme):
-    """The last few weeks of NAVs for one scheme, so a late confirmation finds its own day."""
+    """Recent NAVs, so a late confirmation finds its own day, plus the fund's own range
+    and compound growth worked out from its whole published history."""
     if not scheme:
-        return {}
+        return {}, {}
     d = get("https://api.mfapi.in/mf/%s" % scheme)
     rows = (d or {}).get("data") or []
-    out = {}
-    for row in rows[:45]:
+    series = []
+    for row in rows:
         iso = to_iso(row.get("date"))
-        if iso:
-            try:
-                out[iso] = float(row["nav"])
-            except Exception:
-                pass
+        if not iso:
+            continue
+        try:
+            series.append((iso, float(row["nav"])))
+        except Exception:
+            pass
+    series.sort()
+    if not series:
+        return {}, {}
+    stats = highs_lows(series)
+    for years, key in ((1, "c1"), (3, "c3"), (5, "c5")):
+        v = cagr(series, years)
+        if v is not None:
+            stats[key] = v
+    return dict(series[-60:]), stats
+
+
+def highs_lows(series):
+    """Highest and lowest over the past 52 and 26 weeks. series is [(date, value)] oldest first."""
+    out = {}
+    if len(series) < 5:
+        return out
+    end = datetime.strptime(series[-1][0], "%Y-%m-%d")
+    for days, tag in ((365, "52"), (182, "26")):
+        cut = (end - timedelta(days=days)).strftime("%Y-%m-%d")
+        vals = [v for d, v in series if d >= cut]
+        if len(vals) >= 5:
+            out["hi" + tag] = round(max(vals), 4)
+            out["lo" + tag] = round(min(vals), 4)
     return out
 
 
+def cagr(series, years):
+    """Compound annual growth over this many years, as a percentage. None if the data
+    does not reach back far enough."""
+    if len(series) < 5:
+        return None
+    end_d, end_v = series[-1]
+    want = (datetime.strptime(end_d, "%Y-%m-%d") - timedelta(days=int(round(365.25 * years)))
+            ).strftime("%Y-%m-%d")
+    base = base_d = None
+    for d, v in series:
+        if d <= want:
+            base, base_d = v, d
+        else:
+            break
+    if not base or base <= 0:
+        return None
+    if (datetime.strptime(want, "%Y-%m-%d") - datetime.strptime(base_d, "%Y-%m-%d")).days > 30:
+        return None                     # the nearest reading is too far from the target date
+    try:
+        return round(((end_v / base) ** (1.0 / years) - 1) * 100, 1)
+    except Exception:
+        return None
+
+
 def past_closes(code):
-    """A month of daily closes, from the same chart request that gives the latest price."""
-    d = get("https://query1.finance.yahoo.com/v8/finance/chart/%s?interval=1d&range=1mo"
+    """A year of daily closes, so the card can show where a price sits in its range.
+    Returns the recent closes for the history file, the meta block, and the range figures."""
+    d = get("https://query1.finance.yahoo.com/v8/finance/chart/%s?interval=1d&range=1y"
             % urllib.parse.quote(code))
     res = (((d or {}).get("chart") or {}).get("result") or [{}])[0]
     ts = res.get("timestamp") or []
-    closes = (((res.get("indicators") or {}).get("quote") or [{}])[0].get("close")) or []
-    out = {}
+    q = ((res.get("indicators") or {}).get("quote") or [{}])[0]
+    closes, highs, lows = q.get("close") or [], q.get("high") or [], q.get("low") or []
+    series = []
     for i, t in enumerate(ts):
         if i < len(closes) and closes[i]:
-            out[datetime.fromtimestamp(t, IST).strftime("%Y-%m-%d")] = float(closes[i])
-    return out, res.get("meta") or {}
+            iso = datetime.fromtimestamp(t, IST).strftime("%Y-%m-%d")
+            series.append((iso, float(closes[i])))
+    meta = res.get("meta") or {}
+    stats = highs_lows(series)
+    # the exchange's own 52-week figures are intraday, so they beat a close-only reading
+    for src, key in (("fiftyTwoWeekHigh", "hi52"), ("fiftyTwoWeekLow", "lo52")):
+        if meta.get(src):
+            stats[key] = round(float(meta[src]), 4)
+    for src, key in (("regularMarketDayHigh", "dh"), ("regularMarketDayLow", "dl")):
+        if meta.get(src) and key not in stats:
+            stats[key] = round(float(meta[src]), 4)
+    if "dh" not in stats and highs and lows:
+        for i in range(len(ts) - 1, -1, -1):
+            if i < len(highs) and highs[i] and i < len(lows) and lows[i]:
+                stats["dh"], stats["dl"] = round(float(highs[i]), 4), round(float(lows[i]), 4)
+                break
+    # Yesterday's close, which is what the day's move is measured against. The second to
+    # last reading in the series is the one we want.
+    # Do NOT use the meta field chartPreviousClose here: that is the close before the
+    # START of the range being asked for, so over a one-year range it is a price from a
+    # year ago, and the day's move would come out as the whole year's move.
+    if len(series) > 1:
+        stats["pc"] = round(series[-2][1], 4)
+    elif meta.get("previousClose"):
+        stats["pc"] = round(float(meta["previousClose"]), 4)
+    return dict(series[-130:]), meta, stats
 
 
 def headlines(query, limit=4):
@@ -522,7 +597,10 @@ def main(mode=""):
           if r:
               prices[code] = {"price": float(r["nav"]), "date": r["date"], "name": f["name"],
                               "matched": r["name"], "how": how, "scheme": r["scheme"], "kind": "nav"}
-              back[code] = past_navs(r.get("scheme"))
+              hist_rows, st = past_navs(r.get("scheme"))
+              back[code] = hist_rows
+              if st:
+                  prices[code]["stats"] = st
               print("   %-30s %10s  %s  (%s: %s)" % (f["name"], r["nav"], r["date"], how, r["name"]))
               if how == "matched by name":
                   notes.append("%s matched by name to: %s" % (f["name"], r["name"]))
@@ -551,11 +629,29 @@ def main(mode=""):
             prices[key] = oldp[key]
             print("   %-10s  kept the previous rate" % pair)
 
+    # gold, so physical and digital grams can price themselves
+    try:
+        d = get("https://query1.finance.yahoo.com/v8/finance/chart/GC=F?interval=1d&range=5d")
+        meta = (((d or {}).get("chart") or {}).get("result") or [{}])[0].get("meta") or {}
+        oz = meta.get("regularMarketPrice")
+        inr = (prices.get("FX:USDINR") or {}).get("price")
+        if oz and inr:
+            gram = float(oz) * float(inr) / 31.1034768          # a troy ounce in grams
+            prices["GOLD:GRAM"] = {"price": round(gram, 2), "currency": "INR", "kind": "gold",
+                                   "name": "Gold, 1 gram (international, 24 carat)",
+                                   "date": datetime.now(IST).strftime("%d-%m-%Y")}
+            print("   %-10s %10.2f per gram" % ("GOLD", gram))
+        elif "GOLD:GRAM" in oldp:
+            prices["GOLD:GRAM"] = oldp["GOLD:GRAM"]
+            print("   GOLD        kept the previous price")
+    except Exception:
+        print("   gold step failed, the rest of the run is unaffected")
+
     print("Stocks")
     for s in w.get("stocks", []):
       try:
           code = s["code"]
-          closes, meta = past_closes(code)
+          closes, meta, st = past_closes(code)
           back[code] = closes
           px = meta.get("regularMarketPrice")
           if px:
@@ -567,6 +663,8 @@ def main(mode=""):
                   "currency": meta.get("currency", ""),
                   "kind": "price",
               }
+              if st:
+                  prices[code]["stats"] = st
               print("   %-34s %10.2f" % (s["name"], px))
           else:
               if code in oldp:

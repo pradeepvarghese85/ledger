@@ -130,7 +130,7 @@ textarea{font-family:ui-monospace,Menlo,monospace;font-size:12.3px}
 .drop{border:1px dashed var(--rule);border-radius:10px;padding:18px;background:var(--surface)}
 
 /* ---------- cards ---------- */
-.cardgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:9px;margin-top:9px}
+.cardgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:9px;margin-top:9px;align-items:start}
 .cardgrid .card{margin:0}
 .card{background:var(--surface);border:1px solid var(--rule);border-radius:11px;padding:11px 14px;margin:7px 0;box-shadow:var(--sh)}
 .card-top{display:flex;justify-content:space-between;gap:12px;align-items:baseline}
@@ -140,6 +140,12 @@ textarea{font-family:ui-monospace,Menlo,monospace;font-size:12.3px}
 .card-facts{display:flex;flex-wrap:wrap;gap:3px 16px;margin-top:7px;font-size:13px;font-variant-numeric:tabular-nums}
 .card-facts i{font-style:normal;color:var(--soft);margin-right:3px}
 .card-acts{margin-top:5px;display:flex;gap:4px}
+.rng{display:flex;align-items:center;gap:7px;margin-top:8px;font-size:11.5px;color:var(--soft);
+ font-variant-numeric:tabular-nums;cursor:help}
+.rt{position:relative;flex:1 1 auto;min-width:60px;height:6px;background:var(--tint);border-radius:4px}
+.rt i{position:absolute;top:0;bottom:0;background:var(--deep2);opacity:.34;border-radius:4px}
+.rt b{position:absolute;top:-4px;width:3px;height:14px;border-radius:2px;background:var(--ink);
+ transform:translateX(-1.5px);box-shadow:0 0 0 1.5px var(--surface)}
 
 /* ---------- small things ---------- */
 .flag{border-left:3px solid var(--amber);background:var(--surface);border-radius:0 9px 9px 0;padding:9px 14px;
@@ -152,11 +158,17 @@ textarea{font-family:ui-monospace,Menlo,monospace;font-size:12.3px}
 .info{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:50%;border:1px solid var(--rule);
  color:var(--soft);font:600 10px var(--sans);cursor:help;vertical-align:1px;background:var(--surface);user-select:none}
 .info:hover,.info:focus{background:var(--deep);color:var(--surface);border-color:var(--deep);outline:none}
-.info::after{content:attr(data-tip);position:absolute;left:0;top:calc(100% + 6px);z-index:20;
- width:max-content;max-width:min(300px,78vw);background:var(--ink);color:var(--surface);
+/* The bubble is fixed to the window, not to the label it sits in. Two reasons:
+   a bubble anchored inside the page would be laid out even while hidden and would
+   stretch narrow screens sideways, and inside a table that scrolls it would be cut
+   off at the edge. Its position is set on the icon as --tx and --ty when you point
+   at it, which keeps it on screen at any width. */
+.info::after{content:attr(data-tip);position:fixed;left:var(--tx,0);top:var(--ty,0);z-index:30;
+ width:max-content;max-width:min(320px,calc(100vw - 32px));background:var(--ink);color:var(--surface);
  padding:8px 11px;border-radius:8px;font:400 12.3px/1.45 var(--sans);letter-spacing:0;
  box-shadow:0 6px 20px rgba(0,0,0,.26);opacity:0;visibility:hidden;transition:opacity .12s;pointer-events:none;
  white-space:normal;text-align:left}
+.info[data-up]::after{transform:translateY(-100%)}
 .info:hover::after,.info:focus::after{opacity:1;visibility:visible}
 .drawer{position:fixed;inset:0;background:rgba(6,12,18,.5);display:flex;justify-content:flex-end;z-index:12}
 .drawer form{background:var(--surface);width:min(430px,100%);height:100%;overflow:auto;
@@ -187,8 +199,21 @@ textarea{font-family:ui-monospace,Menlo,monospace;font-size:12.3px}
 <main id="main"></main>
 <div class="navbar"><nav id="nav"></nav></div>
 <div id="drawer"></div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script>
+/* The PDF reader and the spreadsheet reader are over a megabyte together, and they are
+   needed only when a CAS or a broker file is actually being read. So they are fetched
+   at that moment instead of on every visit, which keeps the dashboard quick on a phone
+   and lets it open even when the library host cannot be reached. */
+var LIB={pdf:"https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js",
+         xlsx:"https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"};
+function needLib(src,global){
+ if(window[global])return Promise.resolve(true);
+ return new Promise(function(done){
+  var s=document.createElement("script");s.src=src;s.async=true;
+  s.onload=function(){done(!!window[global])};
+  s.onerror=function(){done(false)};
+  document.head.appendChild(s)})}
+</script>
 <script>
 /* ---------- reference lists ---------- */
 var CATS=["Stock","Mutual fund","ETF","PPF","EPF","NPS","Gold (physical)","Digital gold","Sovereign gold bond","Fixed deposit","Recurring deposit","Bonds","US stock","China stock","ESOP or RSU","Cash or savings account","Real estate","Other"];
@@ -296,11 +321,46 @@ function localGain(r){
  var val=num(r.qty)*PX[r.code].price,g=(val/fc-1)*100;
  return{cur:c,val:val,html:'<span class="'+(g>=0?"up":"down")+'">'+(g>0?"+":"")+g.toFixed(1)+'%</span> <span class="note">'+
   c+" "+(Math.round(val*100)/100).toLocaleString("en-US")+" vs "+fc.toLocaleString("en-US")+'</span>'}}
+
+/* ---------- what the market did, for one holding ---------- */
+function cursym(c){return c=="USD"?"$":c=="HKD"?"HK$":c=="CNY"?"¥":"₹"}
+function bare(v){return v==null?"-":Math.abs(v)>=1000?Math.round(v).toLocaleString("en-IN")
+ :Number(v).toLocaleString("en-IN",{minimumFractionDigits:2,maximumFractionDigits:2})}
+function money(v,c){if(v==null)return"-";
+ return cursym(c)+bare(v)}
+function signed(v){return v==null?"-":'<span class="'+(v>=0?"up":"down")+'">'+(v>0?"+":"")+v.toFixed(1)+'%</span>'}
+function rangeBar(cur,st,c){
+ if(!st||st.hi52==null||st.lo52==null||!(st.hi52>st.lo52)||cur==null)return"";
+ var span=st.hi52-st.lo52,cl=function(x){return Math.max(0,Math.min(100,x))},
+  pos=cl((cur-st.lo52)/span*100),
+  bL=st.lo26!=null?cl((st.lo26-st.lo52)/span*100):null,
+  bW=(st.hi26!=null&&st.lo26!=null)?cl((st.hi26-st.lo26)/span*100):null,
+  where=pos>=92?"at the top of its 52-week range":pos>=70?"in the upper part of its 52-week range":
+        pos<=8?"at the bottom of its 52-week range":pos<=30?"in the lower part of its 52-week range":
+        "around the middle of its 52-week range",
+  tip="Now "+money(cur,c)+", "+Math.round(pos)+"% of the way up, so "+where+
+   ". 52 weeks: "+money(st.lo52,c)+" to "+money(st.hi52,c)+
+   (bW!=null?". The shaded part is the 26-week range, "+money(st.lo26,c)+" to "+money(st.hi26,c):"")+".";
+ return'<div class="rng" title="'+esc(tip)+'"><span>'+money(st.lo52,c)+'</span>'+
+  '<span class="rt">'+(bW!=null?'<i style="left:'+bL.toFixed(1)+'%;width:'+Math.min(Math.max(bW,1.5),100-bL).toFixed(1)+'%"></i>':"")+
+  '<b style="left:'+pos.toFixed(1)+'%"></b></span><span>'+money(st.hi52,c)+'</span></div>'}
+function quote(r){
+ var p=r.code?PX[r.code]:null;
+ if(!p||!p.price)return{facts:[],bar:""};
+ var st=p.stats||{},c=p.currency||"INR",fund=(p.kind=="nav"),f=[];
+ f.push([fund?"NAV":"price",money(p.price,c)]);
+ if(!fund&&st.pc)f.push(["day",signed((p.price/st.pc-1)*100)]);
+ if(!fund&&st.dh!=null&&st.dl!=null)f.push(["day range",money(st.dl,c)+"–"+bare(st.dh)]);
+ if(fund&&st.c1!=null)f.push(["fund 1y",signed(st.c1)]);
+ if(fund&&st.c3!=null)f.push(["3y a year",signed(st.c3)]);
+ if(fund&&st.c3==null&&st.c5!=null)f.push(["5y a year",signed(st.c5)]);
+ return{facts:f,bar:rangeBar(p.price,st,c)}}
 function holdCard(o){
  // o: {name, meta, right, sub, lines[], i}
  return'<div class="card"><div class="card-top"><div><div class="card-name">'+o.name+'</div><div class="note">'+o.meta+'</div></div>'+
   '<div class="card-right">'+o.right+(o.sub?'<div class="note">'+o.sub+'</div>':"")+'</div></div>'+
   (o.lines&&o.lines.length?'<div class="card-facts">'+o.lines.map(function(l){return'<span><i>'+l[0]+'</i> '+l[1]+'</span>'}).join("")+'</div>':"")+
+  (o.bar||"")+
   (o.i==null?"":'<div class="card-acts"><button class="btn link" data-dr="inv" data-i="'+o.i+'">Edit</button><button class="btn link danger" data-del="inv|'+o.i+'">Delete</button></div>')+
   '</div>'}
 function portfolio(){
@@ -332,9 +392,10 @@ function portfolio(){
    return holdCard({name:esc(m.r.name),meta:esc(m.r.cat)+(m.r.sub&&m.r.sub!="-"?" · "+esc(m.r.sub):"")+" · "+esc(m.pl.join(" + ")),
     right:'<b>'+inr(m.v)+'</b>',sub:(tv?(m.v/tv*100).toFixed(1)+'% of all':""),
     lines:[["units",m.q?String(Math.round(m.q*1e4)/1e4):"-"],["put in",m.i?inr(m.i)+(m.part?" *":""):"-"],
-      ["gain",g===null?"-":'<span class="'+(g>=0?"up":"down")+'">'+(g>0?"+":"")+g.toFixed(1)+'%</span>']].concat(
-       localGain(m.r)?[["in "+localGain(m.r).cur,localGain(m.r).html]]:[]).concat(
-       m.r.why?[["why",esc(m.r.why)]]:[])})}).join("")+'</div>'+
+      ["gain",g===null?"-":'<span class="'+(g>=0?"up":"down")+'">'+(g>0?"+":"")+g.toFixed(1)+'%</span>']]
+      .concat(quote(m.r).facts)
+      .concat(localGain(m.r)?[["in "+localGain(m.r).cur,localGain(m.r).html]]:[])
+      .concat(m.r.why?[["why",esc(m.r.why)]]:[]),bar:quote(m.r).bar})}).join("")+'</div>'+
    '<p class="note">Rows with the same name and type are added together. A star means the cost was missing for part of it. Untick the box above to edit single entries.</p>';
   h+=rows('<th>Holding</th><th>Type</th><th>Fund type</th><th>Held in</th><th class="n">Units</th><th class="n">Put in</th><th class="n">Value</th><th class="n">Share</th>',
    o.sort(function(a,b){return b.v-a.v}).map(function(m){return'<tr><td>'+esc(m.r.name)+'</td><td>'+esc(m.r.cat)+'</td><td>'+esc(m.r.sub=="-"?"":m.r.sub)+'</td><td>'+esc(m.pl.join(" + "))+'</td><td class="n">'+(m.q?Math.round(m.q*1e4)/1e4:"-")+'</td><td class="n">'+(m.i?inr(m.i)+(m.part?" *":""):"-")+'</td><td class="n">'+inr(m.v)+'</td><td class="n">'+(tv?(m.v/tv*100).toFixed(1):"0")+'%</td></tr>'}).join(""),
@@ -348,10 +409,13 @@ function portfolio(){
    return holdCard({name:esc(r.name),meta:esc(r.cat)+(r.sub&&r.sub!="-"?" · "+esc(r.sub):"")+(r.plat?" · "+esc(r.plat):"")+(r.status!="Active"?' · <span class="pill">'+esc(r.status)+'</span>':""),
     right:'<b>'+inr(r.value)+'</b>',sub:(shownV?(num(r.value)/shownV*100).toFixed(1)+'% of these':""),
     lines:[["units",r.qty===""?"-":String(r.qty)],["put in",r.invested===""?"-":inr(r.invested)],
-      ["gain",g===null?"-":'<span class="'+(g>=0?"up":"down")+'">'+(g>0?"+":"")+g.toFixed(1)+'%</span>'],
-      ["code",r.code?esc(r.code):"typed in"],["price",r.live?esc(String(r.live)):"-"]].concat(
-       localGain(r)?[["in "+localGain(r).cur,localGain(r).html]]:[]).concat(
-       r.why?[["why",esc(r.why)]]:[]).concat(r.sell?[["sell when",esc(r.sell)]]:[]),i:x.i})}).join("")+'</div>';
+      ["gain",g===null?"-":'<span class="'+(g>=0?"up":"down")+'">'+(g>0?"+":"")+g.toFixed(1)+'%</span>']]
+      .concat(quote(r).facts)
+      .concat(localGain(r)?[["in "+localGain(r).cur,localGain(r).html]]:[])
+      .concat([["code",r.code?esc(r.code):"typed in"],["priced",r.live?esc(String(r.live)):"-"]])
+      .concat(r.why?[["why",esc(r.why)]]:[])
+      .concat(r.sell?[["sell when",esc(r.sell)]]:[]),
+     bar:quote(r).bar,i:x.i})}).join("")+'</div>';
   h+=rows('<th>Holding</th><th>Type</th><th>Fund type</th><th>Held in</th><th>Feed code</th><th class="n">Units</th><th class="n">Put in</th><th class="n">Value</th><th>Status</th><th></th>',
   D.inv.map(function(r,i){return keep(r)?'<tr><td>'+esc(r.name)+'</td><td>'+esc(r.cat)+'</td><td>'+esc(r.sub=="-"?"":r.sub)+'</td><td>'+esc(r.plat)+'</td><td>'+esc(r.code||"")+'</td><td class="n">'+(r.qty===""?"-":r.qty)+'</td><td class="n">'+(r.invested===""?"-":inr(r.invested))+'</td><td class="n">'+inr(r.value)+'</td><td><span class="pill">'+esc(r.status)+'</span></td><td><button class="btn link" data-dr="inv" data-i="'+i+'">Edit</button><button class="btn link danger" data-del="inv|'+i+'">Delete</button></td></tr>':""}).join(""),"")}
  return h}
@@ -691,10 +755,21 @@ function fxOn(cur,when){if(!cur||cur=="INR")return{rate:1,how:"",cur:"INR"};
  if(p)return{rate:p.price,how:(p.exact?"rate of "+p.date:"rate of "+p.date+", the nearest to "+when),cur:cur};
  var now=rate(cur);
  return now?{rate:now,how:"today's rate, not the rate on "+when,cur:cur}:{rate:0,how:"",cur:cur}}
+/* PPF, EPF, NPS and deposits have no units and no daily price. A contribution to one of
+   them is simply money going in, so it is recorded without asking for a price. */
+function noUnits(r){return !r.code&&
+ /^(PPF|EPF|NPS|Fixed deposit|Recurring deposit|Cash or savings account|Real estate|Other)$/.test(r.cat)}
 function confirmSip(k,skip){var due=dueSips(),x=due[k];if(!x)return;
  var r=D.inv[x.i],amt=num(val("sa"+k))||num(r.mc),nav=num(val("sn"+k)),when=val("sd"+k)||x.iso,
   cur=sipCur(r),fx=cur=="INR"?1:(num(val("sr"+k))||fxOn(cur,when).rate),typed=num(val("su"+k));
  if(when<x.iso)when=x.iso;
+ if(!skip&&noUnits(r)){
+  if(!(amt>0)){err="Type the amount that went into "+r.name+" on "+when+".";render();return}
+  if(r.invested!==""&&r.invested!=null)r.invested=Math.round((num(r.invested)+amt)*100)/100;
+  r.value=Math.round((num(r.value)+amt)*100)/100;
+  D.sips.push({name:r.name,code:"",date:when,amount:amt,nav:"",units:"",cur:"INR",fx:""});
+  ok="Put "+inr(amt)+" into "+r.name+" on "+when+". It has no units and no daily price, so the balance has gone up by what you paid in. Correct it from your statement when the interest is added.";
+  r.lastSip=when;err="";save();render();return}
  if(!skip){
   if(!(nav>0)&&!(typed>0)){err="No price for "+x.iso+", so type the price you were given, or the units you were allotted.";render();return}
   if(cur!="INR"&&!(fx>0)&&!(typed>0)){err="No "+cur+" to rupee rate for "+when+". Type the rate your bank gave you, or the units you were allotted.";render();return}
@@ -714,15 +789,16 @@ function sipDue(){var due=dueSips();if(!due.length)return"";
  due.forEach(function(x,k){var when=sipDate[x.r.name+"|"+x.iso]||x.iso,
   p=x.r.code?navOn(x.r.code,when):null,nav=(p&&p.exact)?p.price:"",
   amt=num(x.r.mc),cur=sipCur(x.r),f=fxOn(cur,when),
-  u=(nav&&(cur=="INR"||f.rate))?Math.round(amt/(nav*(cur=="INR"?1:f.rate))*1e4)/1e4:"",note;
-  if(p&&p.exact)note='<span class="note">price of '+esc(p.date)+'</span>';
+  u=(nav&&(cur=="INR"||f.rate))?Math.round(amt/(nav*(cur=="INR"?1:f.rate))*1e4)/1e4:"",note,nu=noUnits(x.r);
+  if(nu)note='<span class="note">no units and no daily price, so the amount is all that is needed</span>';
+  else if(p&&p.exact)note='<span class="note">price of '+esc(p.date)+'</span>';
   else if(p)note='<span class="down">no price for '+esc(when)+' yet. Nearest is '+p.price+' of '+esc(p.date)+'</span>';
   else note='<span class="down">no price for that day, type it in</span>';
   h+='<tr><td><input type="date" id="sd'+k+'" value="'+esc(when)+'" style="width:152px">'+(x.moved?'<br><span class="note">due the '+x.date.getDate()+", "+esc(x.why)+'</span>':"")+'</td><td>'+esc(x.r.name)+'</td>'+
    '<td><input id="sa'+k+'" type="number" step="any" value="'+esc(x.r.mc)+'" style="width:110px"></td>'+
-   '<td><input id="sn'+k+'" type="number" step="any" value="'+esc(nav)+'" style="width:120px">'+(cur=="INR"?"":' <span class="pill">'+esc(cur)+'</span>')+'<br>'+note+'</td>'+
+   '<td>'+(nu?'<span class="note">—</span>':'<input id="sn'+k+'" type="number" step="any" value="'+esc(nav)+'" style="width:120px">'+(cur=="INR"?"":' <span class="pill">'+esc(cur)+'</span>'))+'<br>'+note+'</td>'+
    '<td>'+(cur=="INR"?'<span class="note">—</span>':'<input id="sr'+k+'" type="number" step="any" value="'+esc(f.rate?Math.round(f.rate*10000)/10000:"")+'" style="width:100px"><br><span class="note">'+esc(f.how||"no rate found")+'</span>')+'</td>'+
-   '<td class="n"><input id="su'+k+'" type="number" step="any" placeholder="'+(u||"")+'" style="width:100px"></td><td><button class="btn" data-sip="'+k+'">Confirm</button> <button class="btn link" data-skip="'+k+'">Not taken</button></td></tr>'});
+   '<td class="n">'+(nu?'<span class="note">—</span>':'<input id="su'+k+'" type="number" step="any" placeholder="'+(u||"")+'" style="width:100px">')+'</td><td><button class="btn" data-sip="'+k+'">Confirm</button> <button class="btn link" data-skip="'+k+'">Not taken</button></td></tr>'});
  return h+'</table></div>'}
 function sipLog(){var L=(D.sips||[]).slice().reverse();if(!L.length)return"";
  return'<h2>Confirmed instalments</h2>'+rows('<th>Date</th><th>Holding</th><th class="n">Amount</th><th class="n">Price</th><th class="n">Units</th><th></th>',
@@ -730,9 +806,16 @@ function sipLog(){var L=(D.sips||[]).slice().reverse();if(!L.length)return"";
   "Undo takes back the units and the cost it added.")}
 function undoSip(i){var x=D.sips[i];if(!x)return;
  D.inv.forEach(function(r){if(r.name!=x.name)return;
-  r.qty=Math.round(Math.max(0,num(r.qty)-num(x.units))*1e4)/1e4;
+  // a holding priced in dollars was bought at this rate, so the rupee value needs it back
+  var f=num(x.fx)>0?num(x.fx):1;
+  if(num(x.units)>0){
+   r.qty=Math.round(Math.max(0,num(r.qty)-num(x.units))*1e4)/1e4;
+   r.value=num(x.nav)>0?Math.round(num(r.qty)*num(x.nav)*f*100)/100
+                       :Math.round(Math.max(0,num(r.value)-num(x.amount))*100)/100;
+   if(num(x.fx)>0&&r.fcost!==""&&r.fcost!=null)
+    r.fcost=Math.round(Math.max(0,num(r.fcost)-num(x.amount)/f)*100)/100}
+  else r.value=Math.round(Math.max(0,num(r.value)-num(x.amount))*100)/100;
   if(r.invested!==""&&r.invested!=null)r.invested=Math.round(Math.max(0,num(r.invested)-num(x.amount))*100)/100;
-  r.value=Math.round(num(r.qty)*num(x.nav)*100)/100;
   var earlier=D.sips.filter(function(y,j){return y.name==x.name&&j!=i}).map(function(y){return y.date}).sort();
   r.lastSip=earlier.length?earlier[earlier.length-1]:""});
  D.sips.splice(i,1);ok="Undone.";save();render()}
@@ -1113,7 +1196,10 @@ function parseDetailed(lines){
  return{period:period,schemes:schemes,warn:warn}}
 function readDetailed(){var pw=val("dcpw"),f=dcFile;err="";ok="";
  if(!f){err="Choose the detailed CAS first.";render();return}
- if(!window.pdfjsLib){err="The PDF reader did not load. Check your connection and reload the page.";render();return}
+ if(!window.pdfjsLib){ok="Fetching the PDF reader, one moment…";render();
+  needLib(LIB.pdf,"pdfjsLib").then(function(got){ok="";
+   if(!got){err="The PDF reader could not be fetched. Check your connection and try again.";render();return}
+   readDetailed()});return}
  pdfjsLib.GlobalWorkerOptions.workerSrc="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
  f.arrayBuffer().then(function(buf){return pdfjsLib.getDocument({data:new Uint8Array(buf),password:pw}).promise})
  .then(function(doc){var pages=[],chain=Promise.resolve();
@@ -1483,7 +1569,11 @@ function render(){
  var sk=getSkin(),sel=document.getElementById("skin");
  if(sel&&!sel.options.length){sel.innerHTML=SKINS.map(function(x){return'<option value="'+x[0]+'">'+esc(x[1])+'</option>'}).join("")}
  if(sel)sel.value=sk;
- var cur=PAGES.filter(function(p){return p[0]==page})[0],body=cur[2]();
+ var cur=PAGES.filter(function(p){return p[0]==page})[0],body;
+ if(!cur){page=PAGES[0][0];cur=PAGES[0]}      // an unknown page falls back to the dashboard
+ try{body=cur[2]()}
+ catch(e){body='<h1>'+esc(cur[1])+'</h1><div class="flag">This page could not be drawn: '+
+  esc(e&&e.message||String(e))+'. Nothing of yours is lost. Try another page, and tell me what this says.</div>'}
  // the page's own heading goes into the bar at the top, so the screen starts with content
  var ttl=cur[1],acts="";
  var hm=body.match(/^\s*<div class="head">\s*<h1>([\s\S]*?)<\/h1>([\s\S]*?)<\/div>/);
@@ -1552,7 +1642,24 @@ document.addEventListener("change",function(e){var t=e.target;
  if(/^tp[0-9]+$/.test(t.id)){var L3=(D.plan.trips||TRIPS).map(function(x){return{name:x.name,per:x.per,note:x.note}});
   L3[+t.id.slice(2)].per=num(t.value);D.plan.trips=L3;save();render();return}
  if(t.id=="dcf"&&t.files[0]){dcFile=t.files[0];dcName=dcFile.name;DC=null;err="";render();return}
- if(t.id=="shf"&&t.files[0]){readSheet(t.files[0]);return}});
+ if(t.id=="shf"&&t.files[0]){var sf=t.files[0];
+  if(/\.csv$/i.test(sf.name)){readSheet(sf);return}
+  ok="Fetching the spreadsheet reader, one moment…";render();
+  needLib(LIB.xlsx,"XLSX").then(function(got){ok="";
+   if(!got){err="The spreadsheet reader could not be fetched. Check your connection, or save the file as CSV and try again.";render();return}
+   readSheet(sf)});return}});
+/* Put the help bubble where it can be read: under the i, nudged inwards so it never
+   runs off the side, and flipped above when there is no room below. */
+function placeTip(e){
+ var r=e.getBoundingClientRect(),vw=window.innerWidth,vh=window.innerHeight,
+  w=Math.min(320,vw-32),x=Math.max(12,Math.min(r.left-6,vw-12-w)),below=r.bottom+6;
+ if(below+132>vh&&r.top>150){e.setAttribute("data-up","1");e.style.setProperty("--ty",(r.top-6)+"px")}
+ else{e.removeAttribute("data-up");e.style.setProperty("--ty",below+"px")}
+ e.style.setProperty("--tx",x+"px")}
+function tipAt(t){if(t&&t.classList&&t.classList.contains("info"))placeTip(t)}
+document.addEventListener("mouseover",function(e){tipAt(e.target)});
+document.addEventListener("focusin",function(e){tipAt(e.target)});
+document.addEventListener("touchstart",function(e){tipAt(e.target)},{passive:true});
 setSkin(getSkin());
 render();
 loadPrices();

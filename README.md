@@ -146,6 +146,8 @@ On the **SIP calendar** page, under **Instalments to confirm**. Each row shows t
 
 Nothing is added to your holdings until you press Confirm. The price box stays empty when the NAV for that day is not published yet, so either wait for the next run or type the figure from your statement.
 
+PPF, EPF, NPS and deposits work differently: they have no units and no daily price, so those rows show a dash in the price and units columns. Press **Confirm** and the amount is simply added to what you have put in and to what it is worth. When the yearly interest is credited, open the holding and correct the value from your statement.
+
 ### I want to bring in a CAMS or KFintech statement
 
 **Data** page, the first section, **Detailed CAS, with every transaction**. Ask CAMS or KFintech for the *detailed* statement, not the monthly summary, and choose your own period.
@@ -213,6 +215,8 @@ Nothing else is needed. Reload the dashboard, and press **Ctrl+Shift+R** if it l
 
 You do **not** need to run the job after a page change. Only after changing `update.py` or `data/watchlist.json`.
 
+**Themes.** The box at the top right of the dashboard switches between seven colour schemes, and your choice is remembered on that device. *Match my device* follows whether your phone or computer is set to light or dark.
+
 ---
 
 ## 6. Backups
@@ -234,6 +238,14 @@ Do this after any large change, and every few months otherwise.
 - **News:** Google News, searching the industries in `data/themes.json`. Free.
 - **The Find ideas screen:** a year of daily prices for the names in `data/universe.json`, from Yahoo.
 - **The index comparison:** the Nifty 50 and Nifty 500, priced like any other symbol.
+- **Gold:** the gold futures price in dollars an ounce, converted to rupees a gram. Its feed code is `GOLD:GRAM`, and it suits both physical gold and sovereign gold bonds.
+- **Exchange rates:** `FX:USDINR`, `FX:HKDINR` and `FX:CNYINR`, used to turn a foreign holding into rupees and to work out how many units a rupee SIP bought.
+
+### What each holding card shows
+
+Every run also saves, for each holding it can price, the highest and lowest it has been over 52 weeks and over 26 weeks. The card uses them to draw a small bar: the two ends are the 52-week low and high, the shaded part is the narrower 26-week range, and the marker is where it stands today. Point at the bar and it says the same thing in words.
+
+Alongside it the card shows, for a fund, its last NAV and its growth a year over one and three years; for a share or ETF, the last price, the day's move and the day's range. These come from the last run, not from a live feed, so they are as fresh as the figures in the heading.
 
 ## 8. Alerts
 
