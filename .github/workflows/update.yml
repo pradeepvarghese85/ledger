@@ -1,90 +1,147 @@
 name: Update prices and news
 
+# What this does, in plain words:
+#   It wakes up on a timetable, runs update.py, and saves whatever it fetched
+#   into the data folder of this repository. Your dashboard reads those files.
+#   Nothing of yours is sent anywhere: your holdings never leave your browser.
+#
+# The timetable below is in UTC, because that is all GitHub understands.
+# Indian time is 5 hours 30 minutes ahead.
+#
+#   21:30 UTC  =  03:00 IST next day   everything: prices, NAVs, the screen, news
+#   03:45 UTC  =  09:15 IST            news, just after the Indian market opens
+#   07:00 UTC  =  12:30 IST            news, the midday check
+#   10:45 UTC  =  16:15 IST            prices and news, after the Indian close
+#
+# IMPORTANT: do not edit files in this repository while a run is in progress.
+# The run saves its own changes, and if you have changed something at the same
+# moment, the save is refused. Wait for the green tick, then edit.
+
 on:
   schedule:
-    # all times are UTC. IST is UTC + 5:30
-    - cron: "30 21 * * 1-5"   # 03:00 IST, full run: NAVs, US close, the screen and news
-    - cron: "45 3 * * 1-5"    # 09:15 IST, market open: news only
-    - cron: "0 7 * * 1-5"     # 12:30 IST, midday: news only
-    - cron: "45 10 * * 1-5"   # 16:15 IST, after the Indian close: prices and news
+    - cron: "30 21 * * 1-5"   # 03:00 IST, everything
+    - cron: "45 3 * * 1-5"    # 09:15 IST, news
+    - cron: "0 7 * * 1-5"     # 12:30 IST, news
+    - cron: "45 10 * * 1-5"   # 16:15 IST, prices and news
   workflow_dispatch:
     inputs:
-      what:
+      mode:
         description: "What to fetch"
-        type: choice
+        required: true
         default: everything
-        options: [everything, live, close, news, prices, screen]
+        type: choice
+        options:
+          - everything
+          - live
+          - close
+          - news
+          - prices
+          - screen
 
 permissions:
-  contents: write
+  contents: write        # so the run can save the data files
+  issues: write          # so it can raise an issue when something is notable
+
+concurrency:
+  group: ledger-update
+  cancel-in-progress: false
 
 jobs:
   update:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+
     steps:
       - name: Get the files
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
 
-      - name: Check the files are where they should be
+      - name: Work out which run this is
+        id: pick
         run: |
-          echo "Files in this folder:"
-          ls -la
-          echo "Files in data:"
-          ls -la data || echo "THERE IS NO data FOLDER. Create data/watchlist.json in the repository."
-          python -c "import json;d=json.load(open('data/watchlist.json'));print('watchlist loaded:',len(d.get('stocks',[])),'stocks,',len(d.get('funds',[])),'funds')"
-
-      - name: Decide what this run does
-        id: mode
-        run: |
-          case "${{ github.event_name }}:${{ github.event.schedule }}" in
-            schedule:"45 3 * * 1-5"|schedule:"0 7 * * 1-5") MODE=live ;;
-            schedule:"45 10 * * 1-5")                        MODE=close ;;
-            schedule:*)                                      MODE= ;;
-            *) MODE="${{ github.event.inputs.what }}"; [ "$MODE" = "everything" ] && MODE= ;;
+          case "${{ github.event.schedule }}" in
+            "30 21 * * 1-5") MODE=everything ;;
+            "45 3 * * 1-5")  MODE=news ;;
+            "0 7 * * 1-5")   MODE=news ;;
+            "45 10 * * 1-5") MODE=close ;;
+            *)               MODE="${{ github.event.inputs.mode }}" ;;
           esac
-          echo "args=$MODE" >> "$GITHUB_OUTPUT"
-          echo "This run does: ${MODE:-everything}"
+          [ -z "$MODE" ] && MODE=everything
+          echo "mode=$MODE" >> "$GITHUB_OUTPUT"
+          echo "This run is: $MODE"
 
       - name: Fetch
-        run: python update.py ${{ steps.mode.outputs.args }}
+        run: python update.py "${{ steps.pick.outputs.mode }}"
 
-      - name: Tell me about anything notable
-        if: steps.mode.outputs.args == '' || steps.mode.outputs.args == 'close'
-        env:
-          GH_TOKEN: ${{ github.token }}
+      - name: What came back
+        if: always()
         run: |
-          python - <<'PY' > /tmp/alerts.txt
-          import json
-          try:
-              d = json.load(open("data/alerts.json"))
-          except Exception:
-              d = {}
-          for x in d.get("items", []):
-              print("- " + x)
+          echo "--- files in data ---"
+          ls -l data || true
+          echo "--- how many prices ---"
+          python - <<'PY'
+          import json, os
+          p = "data/prices.json"
+          if os.path.exists(p):
+              d = json.load(open(p))
+              pr = d.get("prices", {})
+              print("prices:", len(pr))
+              print("with range figures:", sum(1 for v in pr.values() if "stats" in v))
+              print("updated:", d.get("updated"))
+              for n in (d.get("notes") or [])[:12]:
+                  print(" note:", n)
+              if d.get("stale"):
+                  print(" could not be fetched:", ", ".join(d["stale"])[:400])
+          else:
+              print("no prices.json was written")
           PY
-          if [ -s /tmp/alerts.txt ]; then
-            gh issue create \
-              --title "Portfolio notes, $(TZ=Asia/Kolkata date +'%d %b %Y %H:%M')" \
-              --body-file /tmp/alerts.txt || echo "Could not raise an issue; the alerts are still in data/alerts.json"
-          else
-            echo "Nothing worth flagging."
-          fi
 
-      - name: Save what changed
+      - name: Save the new data
         run: |
           git config user.name "price bot"
-          git config user.email "actions@github.com"
+          git config user.email "bot@users.noreply.github.com"
           git add -A data
-          if git diff --staged --quiet; then
+          if git diff --cached --quiet; then
             echo "Nothing changed, so nothing to save."
-          else
-            git commit -m "Update $(date -u +'%Y-%m-%d %H:%M') UTC"
-            git pull --rebase origin "${GITHUB_REF_NAME}" || true
-            git push origin "HEAD:${GITHUB_REF_NAME}"
-            echo "Saved."
+            exit 0
+          fi
+          git commit -m "Data refresh: ${{ steps.pick.outputs.mode }}"
+          # someone may have pushed while this was running, so take their work first
+          for try in 1 2 3; do
+            git pull --rebase origin "$GITHUB_REF_NAME" && break
+            echo "pull attempt $try did not work, trying again"
+            sleep 5
+          done
+          git push origin HEAD:"$GITHUB_REF_NAME"
+
+      - name: Tell me if anything is notable
+        if: steps.pick.outputs.mode == 'everything' || steps.pick.outputs.mode == 'close'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          python - <<'PY' > /tmp/alert-body.md
+          import json, os
+          items = []
+          if os.path.exists("data/alerts.json"):
+              items = (json.load(open("data/alerts.json")) or {}).get("items") or []
+          for i in items[:25]:
+              print("- " + str(i))
+          open("/tmp/alert-count", "w").write(str(len(items)))
+          PY
+          COUNT=$(cat /tmp/alert-count 2>/dev/null || echo 0)
+          echo "notable items: $COUNT"
+          if [ "$COUNT" -gt 0 ]; then
+            {
+              echo ""
+              echo "From the run at $(date -u +'%Y-%m-%d %H:%M') UTC."
+              echo "Open the dashboard to see the detail. Close this issue once you have read it."
+            } >> /tmp/alert-body.md
+            gh issue create \
+              --title "Worth a look: $(date -u +'%d %b %Y')" \
+              --body-file /tmp/alert-body.md \
+            || echo "Could not raise an issue. The run itself was fine."
           fi
